@@ -1,8 +1,12 @@
+export interface UsageWindow {
+  utilization: number;   // 0–100 percentage
+  resets_at: string | null;
+}
+
 export interface UsageData {
-  messages_used: number | null;
-  messages_limit: number | null;
-  reset_at: string | null;
-  plan: string | null;
+  five_hour: UsageWindow | null;
+  seven_day: UsageWindow | null;
+  seven_day_sonnet: UsageWindow | null;
   org_name: string | null;
   email: string | null;
   fetched_at: string;

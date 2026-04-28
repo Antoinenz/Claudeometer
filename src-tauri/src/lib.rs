@@ -166,7 +166,7 @@ async fn check_thresholds(app: &AppHandle, usage: &claude::UsageData) {
         .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default();
 
-    let Some(pct) = usage.usage_percent() else {
+    let Some(pct) = usage.max_utilization() else {
         return;
     };
 
@@ -175,14 +175,7 @@ async fn check_thresholds(app: &AppHandle, usage: &claude::UsageData) {
     }
 
     let title = "Claude Usage Alert".to_string();
-    let body = format!(
-        "You've used {pct:.0}% of your message limit{}.",
-        usage
-            .reset_at
-            .as_deref()
-            .map(|r| format!(" — resets in {r}"))
-            .unwrap_or_default()
-    );
+    let body = format!("You've used {pct:.0}% of your usage limit.");
 
     if settings.desktop_notifications {
         use tauri_plugin_notification::NotificationExt;

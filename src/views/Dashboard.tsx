@@ -1,4 +1,4 @@
-import { AuthState, UsageData } from "../lib/types";
+import { AuthState, UsageData, UsageWindow } from "../lib/types";
 import UsageBar from "../components/UsageBar";
 
 interface Props {
@@ -9,40 +9,40 @@ interface Props {
   onRefresh: () => void;
 }
 
-function formatResetAt(resetAt: string | null): string | null {
-  if (!resetAt) return null;
-  try {
-    const d = new Date(resetAt);
-    const now = new Date();
-    const diffMs = d.getTime() - now.getTime();
-    if (diffMs <= 0) return "soon";
-    const diffH = Math.floor(diffMs / 3600000);
-    const diffM = Math.floor((diffMs % 3600000) / 60000);
-    if (diffH > 0) return `${diffH}h ${diffM}m`;
-    return `${diffM}m`;
-  } catch {
-    return null;
-  }
-}
-
 function formatFetchedAt(ts: string): string {
   try {
-    return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   } catch {
     return ts;
   }
 }
 
+function maxUtil(usage: UsageData): number | null {
+  const windows = [usage.five_hour, usage.seven_day, usage.seven_day_sonnet]
+    .filter((w): w is UsageWindow => w != null)
+    .map(w => w.utilization);
+  return windows.length > 0 ? Math.max(...windows) : null;
+}
+
+function StatusDot({ pct }: { pct: number | null }) {
+  const color = pct == null
+    ? "bg-zinc-500"
+    : pct >= 90 ? "bg-red-400"
+    : pct >= 75 ? "bg-orange-400"
+    : pct >= 60 ? "bg-amber-400"
+    : "bg-emerald-400";
+  return <span className={`w-2 h-2 rounded-full shrink-0 ${color}`} />;
+}
+
 export default function Dashboard({ auth, usage, error, onSettings, onRefresh }: Props) {
-  const resetsIn = formatResetAt(usage?.reset_at ?? null);
-  const hasLimitData = usage?.messages_limit != null;
+  const pct = usage ? maxUtil(usage) : null;
 
   return (
     <div className="flex flex-col h-full">
       {/* Topbar */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/60">
         <div className="flex items-center gap-2">
-          <span className="text-base">⊙</span>
+          <span className="text-base leading-none">⊙</span>
           <span className="text-sm font-medium text-zinc-200">Claudeometer</span>
         </div>
         <div className="flex items-center gap-1">
@@ -68,19 +68,25 @@ export default function Dashboard({ auth, usage, error, onSettings, onRefresh }:
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
-        {/* Account card */}
+      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
+        {/* Account row */}
         <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-3 flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-          <div className="min-w-0">
+          <StatusDot pct={pct} />
+          <div className="min-w-0 flex-1">
             <p className="text-sm text-zinc-200 truncate">
-              {auth.email ?? (auth.mode === "api_key" ? "API Key" : "Connected")}
+              {auth.email ?? usage?.org_name ?? (auth.mode === "api_key" ? "API Key" : "Connected")}
             </p>
-            {usage?.plan && (
-              <p className="text-xs text-zinc-600 capitalize mt-0.5">{usage.plan} plan</p>
+            {usage?.org_name && auth.email && (
+              <p className="text-xs text-zinc-600 mt-0.5 truncate">{usage.org_name}</p>
             )}
           </div>
+          {pct != null && (
+            <span className={`text-xs font-mono font-semibold tabular-nums ${
+              pct >= 90 ? "text-red-400" : pct >= 75 ? "text-orange-400" : pct >= 60 ? "text-amber-400" : "text-emerald-400"
+            }`}>
+              {pct.toFixed(0)}%
+            </span>
+          )}
         </div>
 
         {/* Error state */}
@@ -90,43 +96,52 @@ export default function Dashboard({ auth, usage, error, onSettings, onRefresh }:
           </div>
         )}
 
-        {/* Usage section */}
+        {/* Loading */}
         {!usage && !error && (
-          <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-8 text-center">
+          <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-10 text-center">
             <p className="text-sm text-zinc-600">Fetching usage…</p>
           </div>
         )}
 
+        {/* Usage windows */}
         {usage && (
           <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-4 space-y-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Usage</h2>
-              {resetsIn && (
-                <span className="text-xs text-zinc-600">
-                  Resets in <span className="text-zinc-400">{resetsIn}</span>
-                </span>
-              )}
-            </div>
+            <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Usage limits</h2>
 
-            {hasLimitData ? (
-              <UsageBar
-                label="Messages"
-                used={usage.messages_used}
-                limit={usage.messages_limit}
-              />
+            {usage.source === "api_key" ? (
+              <p className="text-sm text-zinc-600 text-center py-2">
+                Usage limits aren't available via API key.<br />
+                <span className="text-xs">Use a session key for limit tracking.</span>
+              </p>
             ) : (
-              <div className="text-center py-4">
-                <p className="text-sm text-zinc-600">
-                  {usage.source === "api_key"
-                    ? "Detailed usage not available via API key."
-                    : "Usage data not returned by Claude.ai."}
-                </p>
-                <p className="text-xs text-zinc-700 mt-1">
-                  {usage.source === "api_key"
-                    ? "Switch to session key mode for limit tracking."
-                    : "Claude.ai may not expose limits for your plan."}
-                </p>
-              </div>
+              <>
+                {usage.five_hour && (
+                  <UsageBar
+                    label="5-hour"
+                    utilization={usage.five_hour.utilization}
+                    resetsAt={usage.five_hour.resets_at}
+                  />
+                )}
+                {usage.seven_day && (
+                  <UsageBar
+                    label="7-day"
+                    utilization={usage.seven_day.utilization}
+                    resetsAt={usage.seven_day.resets_at}
+                  />
+                )}
+                {usage.seven_day_sonnet && (
+                  <UsageBar
+                    label="7-day (Sonnet)"
+                    utilization={usage.seven_day_sonnet.utilization}
+                    resetsAt={usage.seven_day_sonnet.resets_at}
+                  />
+                )}
+                {!usage.five_hour && !usage.seven_day && !usage.seven_day_sonnet && (
+                  <p className="text-sm text-zinc-600 text-center py-2">
+                    No usage data returned by Claude.ai.
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}
