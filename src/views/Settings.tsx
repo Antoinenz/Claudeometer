@@ -245,15 +245,19 @@ function RuleEditor({ rule, onChange }: {
 
 // ── Mac-style rule list with portal dropdown + portal modal editor ────────────
 
+// Topbar height in px — modal backdrop starts below this
+const TOPBAR_H = 41;
+
 function RuleList({ rules, onChange }: {
   rules: NotificationRule[];
   onChange: (rules: NotificationRule[]) => void;
 }) {
-  const [selectedId, setSelectedId]     = useState<string | null>(null);
-  const [editingRule, setEditingRule]   = useState<NotificationRule | null>(null);
-  const [showAddMenu, setShowAddMenu]   = useState(false);
-  const [menuPos, setMenuPos]           = useState({ bottom: 0, left: 0 });
-  const plusRef = useRef<HTMLButtonElement>(null);
+  const [selectedId, setSelectedId]   = useState<string | null>(null);
+  const [editingRule, setEditingRule] = useState<NotificationRule | null>(null);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [menuPos, setMenuPos]         = useState({ bottom: 0, left: 0 });
+  const plusRef   = useRef<HTMLButtonElement>(null);
+  const listRef   = useRef<HTMLDivElement>(null);
 
   // Close modal on Escape
   useEffect(() => {
@@ -262,6 +266,17 @@ function RuleList({ rules, onChange }: {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [editingRule]);
+
+  // Deselect when clicking anywhere outside this RuleList
+  useEffect(() => {
+    const handler = (e: PointerEvent) => {
+      if (listRef.current && !listRef.current.contains(e.target as Node)) {
+        setSelectedId(null);
+      }
+    };
+    document.addEventListener("pointerdown", handler);
+    return () => document.removeEventListener("pointerdown", handler);
+  }, []);
 
   const openAddMenu = () => {
     if (plusRef.current) {
@@ -275,7 +290,7 @@ function RuleList({ rules, onChange }: {
     const rule = makeDefaultRule(type);
     onChange([...rules, rule]);
     setSelectedId(rule.id);
-    setEditingRule(rule);
+    setEditingRule(rule);  // open modal immediately for new rules
     setShowAddMenu(false);
   };
 
@@ -291,8 +306,13 @@ function RuleList({ rules, onChange }: {
     setEditingRule(updated);
   };
 
+  const openEditor = (rule: NotificationRule) => {
+    setSelectedId(rule.id);
+    setEditingRule(rule);
+  };
+
   return (
-    <div className="space-y-1.5">
+    <div ref={listRef} className="space-y-1.5">
       {/* List box */}
       <div className="rounded-lg border border-zinc-700 overflow-hidden bg-zinc-950 min-h-[72px]">
         {rules.length === 0 ? (
@@ -301,19 +321,35 @@ function RuleList({ rules, onChange }: {
           </div>
         ) : (
           rules.map((rule, i) => (
-            <button
+            <div
               key={rule.id}
-              onClick={() => { setSelectedId(rule.id); setEditingRule(rule); }}
-              className={`w-full px-3 py-2 text-left text-xs transition-colors ${
+              className={`group flex items-center gap-1 px-3 py-2 text-xs cursor-default transition-colors ${
                 i < rules.length - 1 ? "border-b border-zinc-800" : ""
               } ${
                 selectedId === rule.id
                   ? "bg-amber-600/10 text-amber-400"
                   : "text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
               }`}
+              onClick={() => setSelectedId(rule.id)}
+              onDoubleClick={() => openEditor(rule)}
             >
-              {formatRule(rule)}
-            </button>
+              <span className="flex-1 pointer-events-none">{formatRule(rule)}</span>
+              {/* Edit button — visible on hover or when selected */}
+              <button
+                className={`shrink-0 p-0.5 rounded transition-colors opacity-0 group-hover:opacity-100 ${
+                  selectedId === rule.id
+                    ? "text-amber-500/60 hover:text-amber-400"
+                    : "text-zinc-600 hover:text-zinc-300"
+                }`}
+                onClick={(e) => { e.stopPropagation(); openEditor(rule); }}
+                onDoubleClick={(e) => e.stopPropagation()}
+                title="Edit"
+              >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </button>
+            </div>
           ))
         )}
       </div>
@@ -332,10 +368,9 @@ function RuleList({ rules, onChange }: {
         >−</button>
       </div>
 
-      {/* Add-type dropdown — rendered in a portal so it escapes overflow:hidden */}
+      {/* Add-type dropdown — portal so it escapes overflow:hidden */}
       {showAddMenu && createPortal(
         <>
-          {/* invisible backdrop closes menu */}
           <div className="fixed inset-0 z-40" onClick={() => setShowAddMenu(false)} />
           <div
             className="fixed z-50 bg-zinc-900 border border-zinc-700 rounded-lg overflow-hidden w-56 shadow-xl"
@@ -358,17 +393,17 @@ function RuleList({ rules, onChange }: {
         document.body
       )}
 
-      {/* Rule editor — full-window modal portal */}
+      {/* Rule editor modal — starts below the Settings topbar */}
       {editingRule && createPortal(
         <div
-          className="fixed inset-0 bg-[#111111]/75 backdrop-blur-sm flex items-center justify-center z-50 p-5"
+          className="fixed inset-x-0 bottom-0 bg-[#111111]/75 backdrop-blur-sm flex items-center justify-center z-50 p-5"
+          style={{ top: TOPBAR_H }}
           onClick={() => setEditingRule(null)}
         >
           <div
             className="bg-zinc-900 border border-zinc-800 rounded-xl w-full shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
               <p className="text-sm font-medium text-zinc-200">{ruleTypeLabel(editingRule.type)}</p>
               <button
@@ -380,7 +415,6 @@ function RuleList({ rules, onChange }: {
                 </svg>
               </button>
             </div>
-            {/* Modal body */}
             <div className="px-4 py-4">
               <RuleEditor rule={editingRule} onChange={updateRule} />
             </div>
@@ -395,35 +429,32 @@ function RuleList({ rules, onChange }: {
 // ── Main Settings view ───────────────────────────────────────────────────────
 
 export default function Settings({ auth, onBack, onLogout }: Props) {
-  const [settings, setSettings]         = useState<SettingsType>(DEFAULT_SETTINGS);
-  const [savedSettings, setSavedSettings] = useState<SettingsType>(DEFAULT_SETTINGS);
-  const [showPrompt, setShowPrompt]     = useState(false);
-  const [ntfyTesting, setNtfyTesting]   = useState(false);
-  const [ntfyTestOk, setNtfyTestOk]     = useState(false);
+  const [settings, setSettings]           = useState<SettingsType>(DEFAULT_SETTINGS);
+  const [ntfyTesting, setNtfyTesting]     = useState(false);
+  const [ntfyTestOk, setNtfyTestOk]       = useState(false);
   const [ntfyTestError, setNtfyTestError] = useState<string | null>(null);
+  const isLoaded = useRef(false);
 
   useEffect(() => {
     invoke<SettingsType>("get_settings").then((s) => {
       setSettings(s);
-      setSavedSettings(s);
     });
   }, []);
 
-  const isDirty = JSON.stringify(settings) !== JSON.stringify(savedSettings);
+  // Auto-save with a short debounce so sliders don't hammer the store
+  useEffect(() => {
+    if (!isLoaded.current) {
+      isLoaded.current = true;
+      return;
+    }
+    const timer = setTimeout(() => {
+      invoke("save_settings", { settings }).catch(() => {});
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [settings]);
 
   const update = (patch: Partial<SettingsType>) =>
     setSettings((s) => ({ ...s, ...patch }));
-
-  const save = () => {
-    invoke("save_settings", { settings }).catch(() => {});
-    setSavedSettings(settings);
-    onBack();
-  };
-
-  const handleBack = () => {
-    if (isDirty) setShowPrompt(true);
-    else onBack();
-  };
 
   const testNtfy = async () => {
     setNtfyTesting(true);
@@ -461,7 +492,7 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
       >
         <div className="flex items-center gap-2">
           <button
-            onClick={handleBack}
+            onClick={onBack}
             className="p-1 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -473,7 +504,7 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
         <WindowControls />
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 pb-20 space-y-3">
+      <div className="flex-1 overflow-y-auto overscroll-y-none px-4 py-4 space-y-3">
         {/* General */}
         <Section title="General">
           <Toggle label="Launch at startup"
@@ -600,39 +631,6 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
         </Section>
       </div>
 
-      {/* Floating save */}
-      <button
-        onClick={save}
-        className="absolute bottom-4 left-4 text-sm font-medium text-white bg-amber-600 hover:bg-amber-500 px-6 py-2.5 rounded-full transition-colors"
-      >
-        Save
-      </button>
-
-      {/* Unsaved-changes prompt */}
-      {showPrompt && (
-        <div className="absolute inset-0 bg-[#111111]/70 backdrop-blur-sm flex items-center justify-center px-6 z-10">
-          <div className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4">
-            <div>
-              <p className="text-sm font-medium text-zinc-200">Unsaved changes</p>
-              <p className="text-xs text-zinc-500 mt-1">Leave without saving?</p>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setShowPrompt(false)}
-                className="flex-1 text-xs py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors">
-                Keep editing
-              </button>
-              <button onClick={onBack}
-                className="flex-1 text-xs py-2 rounded-lg text-red-400 hover:text-red-300 bg-red-500/5 hover:bg-red-500/10 border border-red-500/20 transition-colors">
-                Discard
-              </button>
-              <button onClick={save}
-                className="flex-1 text-xs py-2 rounded-lg text-white bg-amber-600 hover:bg-amber-500 transition-colors">
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

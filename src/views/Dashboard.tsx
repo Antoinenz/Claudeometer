@@ -133,7 +133,7 @@ export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, 
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-y-none">
         {error ? (
           <div className="flex h-full items-center justify-center px-6">
             <p className="text-sm text-red-400 text-center">{classifyError(error)}</p>

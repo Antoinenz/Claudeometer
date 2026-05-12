@@ -53,7 +53,10 @@ export default function UsageBar({ label, utilization, resetsAt }: UsageBarProps
     <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-4 space-y-3">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{label}</span>
-        <span className={`text-3xl font-bold tabular-nums leading-none ${TEXT_COLORS[t]}`}>
+        <span
+          className={`text-3xl font-bold tabular-nums leading-none ${TEXT_COLORS[t]}`}
+          style={{ fontFamily: "'Space Mono', monospace" }}
+        >
           {Math.round(pct)}<span className="text-lg font-semibold">%</span>
         </span>
       </div>

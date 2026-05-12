@@ -73,6 +73,18 @@ export default function App() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Ctrl+R → refresh (page reload is already blocked in main.tsx)
+  useEffect(() => {
+    if (auth.mode === "none") return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "r" && !e.shiftKey) {
+        doRefresh();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [auth.mode]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-refresh when the window comes into focus
   useEffect(() => {
     if (auth.mode === "none") return;
