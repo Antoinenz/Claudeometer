@@ -687,7 +687,7 @@ export default function Settings({ auth, isFocused, onBack, onLogout, onOpenDebu
         <Section title="About">
           <div className="flex items-center gap-3">
             <img
-            src="/icon.png" alt="" className="w-9 h-9 rounded-lg shrink-0" draggable={false}
+            src="/icon-large.png" alt="" className="w-9 h-9 rounded-lg shrink-0" draggable={false}
             onClick={() => {
               debugTapCount.current += 1;
               if (debugTapTimer.current) clearTimeout(debugTapTimer.current);
