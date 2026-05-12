@@ -8,7 +8,7 @@ import Dashboard from "./views/Dashboard";
 import Settings_ from "./views/Settings";
 import Debug from "./views/Debug";
 
-type View = "login" | "dashboard" | "settings" | "debug";
+type View = "login" | "login-debug" | "dashboard" | "settings" | "debug";
 
 const COOLDOWN_MS = 20_000;
 
@@ -213,8 +213,10 @@ export default function App() {
           settings={settings}
           onBack={() => setView("settings")}
           onSimulate={(usage, error) => { setSimulation({ usage, error }); setView("dashboard"); }}
+          onShowLogin={() => setView("login-debug")}
         />
       )}
+      {view === "login-debug" && <Login onLogin={handleLogin} onBack={() => setView("debug")} />}
     </div>
   );
 }

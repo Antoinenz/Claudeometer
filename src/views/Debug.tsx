@@ -10,6 +10,7 @@ interface Props {
   settings: Settings;
   onBack: () => void;
   onSimulate: (usage: UsageData | null, error: string | null) => void;
+  onShowLogin: () => void;
 }
 
 // ── Mock data helpers ────────────────────────────────────────────────────────
@@ -102,7 +103,7 @@ function TestButton({ label, status, msg, onClick, disabled }: {
 
 // ── Main Debug view ──────────────────────────────────────────────────────────
 
-export default function Debug({ isFocused, settings, onBack, onSimulate }: Props) {
+export default function Debug({ isFocused, settings, onBack, onSimulate, onShowLogin }: Props) {
   const [version, setVersion] = useState<string | null>(null);
   const desktop = useNotifTest();
   const ntfy    = useNotifTest();
@@ -145,8 +146,15 @@ export default function Debug({ isFocused, settings, onBack, onSimulate }: Props
         {/* Simulate dashboard states */}
         <DebugSection title="Simulate">
           <p className="text-[11.5px] text-zinc-500 -mt-1 leading-relaxed">
-            Switches to the dashboard with mock data. Exit via the banner at the bottom.
+            Switches to a view with mock data. Exit via the banner at the bottom of the dashboard.
           </p>
+          <button
+            onClick={onShowLogin}
+            className="w-full text-left px-2.5 py-2 rounded-md bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/60 transition-colors"
+          >
+            <p className="text-[11.5px] text-zinc-300">Login screen</p>
+            <p className="text-[10px] text-zinc-600 mt-0.5">Navigate to login view</p>
+          </button>
           <div className="grid grid-cols-2 gap-1.5">
             {SIMULATIONS.map((s) => (
               <button

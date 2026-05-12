@@ -26,7 +26,7 @@ function classifyError(err: string): { kind: ErrorKind; title: string; hint: str
     return { kind: "offline", title: "No internet connection",   hint: "Check your network and try again" };
   }
   if (lower.includes("401") || lower.includes("403") || lower.includes("unauthorized") || lower.includes("session") || lower.includes("expired") || lower.includes("forbidden")) {
-    return { kind: "auth",    title: "Session expired",          hint: "Sign in again from Settings" };
+    return { kind: "auth",    title: "Session expired",          hint: "Sign out and reconnect to update your token" };
   }
   if (lower.includes("claude") || lower.includes("502") || lower.includes("503") || lower.includes("500") || lower.includes("timeout")) {
     return { kind: "claude",  title: "Can't reach Claude.ai",    hint: "The service may be unavailable" };
@@ -35,8 +35,15 @@ function classifyError(err: string): { kind: ErrorKind; title: string; hint: str
 }
 
 function ErrorIcon({ kind }: { kind: ErrorKind }) {
-  const paths: Record<ErrorKind, string> = {
-    offline: "M18.364 5.636a9 9 0 010 12.728m-3.536-3.536a4 4 0 010-5.656M3 3l18 18",
+  if (kind === "offline") {
+    return (
+      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+      </svg>
+    );
+  }
+  const paths: Record<Exclude<ErrorKind, "offline">, string> = {
     auth:    "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
     claude:  "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
     unknown: "M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
@@ -183,12 +190,20 @@ export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, 
                 <p className="text-sm font-medium text-zinc-200">{err.title}</p>
                 <p className="text-xs text-zinc-500 leading-relaxed">{err.hint}</p>
               </div>
-              {err.kind === "auth" && (
+              {err.kind === "auth" ? (
                 <button
                   onClick={onSignOut}
                   className="text-[12px] px-3 py-1.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-700 transition-colors"
                 >
                   Sign out
+                </button>
+              ) : (
+                <button
+                  onClick={onRefresh}
+                  disabled={isRefreshing}
+                  className="text-[12px] px-3 py-1.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-700 transition-colors disabled:opacity-40"
+                >
+                  {isRefreshing ? "Refreshing…" : "Try again"}
                 </button>
               )}
             </div>

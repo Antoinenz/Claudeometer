@@ -6,9 +6,10 @@ import WindowControls from "../components/WindowControls";
 
 interface Props {
   onLogin: (auth: AuthState) => void;
+  onBack?: () => void;
 }
 
-export default function Login({ onLogin }: Props) {
+export default function Login({ onLogin, onBack }: Props) {
   const [key, setKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +33,19 @@ export default function Login({ onLogin }: Props) {
     <div className="flex flex-col h-full">
       <div
         data-tauri-drag-region
-        className="flex items-center justify-end px-3 py-2 select-none shrink-0"
+        className="flex items-center justify-between px-3 py-2 select-none shrink-0"
       >
+        {onBack ? (
+          <button
+            onClick={onBack}
+            className="-ml-1 p-1.5 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/80 transition-colors"
+            title="Back"
+          >
+            <svg className="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        ) : <div />}
         <WindowControls />
       </div>
 
