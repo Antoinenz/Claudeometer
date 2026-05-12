@@ -195,7 +195,7 @@ export default function App() {
           onSettings={() => setView("settings")}
           onRefresh={doRefresh}
           onSignOut={handleLogout}
-          onStopSimulation={() => setSimulation(null)}
+          onStopSimulation={() => { setSimulation(null); setView("debug"); }}
         />
       )}
       {view === "settings" && (
