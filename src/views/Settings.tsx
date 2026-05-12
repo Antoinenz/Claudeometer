@@ -22,9 +22,9 @@ function Toggle({
 }) {
   return (
     <div className="flex items-start justify-between gap-4">
-      <div>
+      <div className="min-w-0 flex-1">
         <p className="text-sm text-zinc-200">{label}</p>
-        {description && <p className="text-xs text-zinc-500 mt-0.5">{description}</p>}
+        {description && <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{description}</p>}
       </div>
       <button
         onClick={() => onChange(!value)}
@@ -119,7 +119,7 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
       {/* Topbar — drag region */}
       <div
         data-tauri-drag-region
-        className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800/60 select-none"
+        className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800/60 select-none shrink-0"
       >
         <div className="flex items-center gap-2">
           <button
@@ -135,7 +135,7 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
         <WindowControls />
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
         <Section title="General">
           <Toggle
             label="Launch at startup"
@@ -146,6 +146,15 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
             label="Minimize to tray on close"
             value={settings.minimize_to_tray}
             onChange={(v) => update({ minimize_to_tray: v })}
+          />
+        </Section>
+
+        <Section title="Display">
+          <Toggle
+            label="Always show precise timestamp"
+            description="Shows exact time (e.g. 'Updated at 11:47:59 pm') instead of relative"
+            value={settings.precise_timestamp}
+            onChange={(v) => update({ precise_timestamp: v })}
           />
         </Section>
 
@@ -218,11 +227,21 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
         </Section>
 
         <Section title="Account">
-          <div>
-            <p className="text-xs text-zinc-500">Signed in as</p>
-            <p className="text-sm text-zinc-300 mt-0.5">
-              {auth.email ?? (auth.mode === "api_key" ? "API Key" : "—")}
-            </p>
+          <div className="space-y-0.5">
+            {auth.name && (
+              <p className="text-sm font-medium text-zinc-200">{auth.name}</p>
+            )}
+            {auth.email ? (
+              <p className={auth.name ? "text-xs text-zinc-500" : "text-sm text-zinc-300"}>
+                {auth.email}
+              </p>
+            ) : (
+              !auth.name && (
+                <p className="text-sm text-zinc-400">
+                  {auth.mode === "api_key" ? "API Key" : "Session key"}
+                </p>
+              )
+            )}
           </div>
           <button
             onClick={onLogout}
@@ -234,7 +253,7 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
       </div>
 
       {/* Save bar */}
-      <div className="px-5 py-4 border-t border-zinc-800/60 space-y-2">
+      <div className="shrink-0 px-4 py-4 border-t border-zinc-800/60 space-y-2">
         {saveError && (
           <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
             {saveError}

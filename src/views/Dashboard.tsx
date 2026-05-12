@@ -1,58 +1,76 @@
-import { AuthState, UsageData, UsageWindow } from "../lib/types";
+import { useEffect, useState } from "react";
+import { UsageData } from "../lib/types";
 import UsageBar from "../components/UsageBar";
 import WindowControls from "../components/WindowControls";
 
 interface Props {
-  auth: AuthState;
   usage: UsageData | null;
   error: string | null;
+  isRefreshing: boolean;
+  isRefreshDisabled: boolean;
+  preciseTimestamp: boolean;
   onSettings: () => void;
   onRefresh: () => void;
 }
 
-function formatFetchedAt(ts: string): string {
+function classifyError(err: string): string {
+  const lower = err.toLowerCase();
+  if (lower.includes("network") || lower.includes("dns") || lower.includes("offline") || lower.includes("internet") || lower.includes("connect")) {
+    return "Not connected to internet";
+  }
+  if (lower.includes("401") || lower.includes("403") || lower.includes("unauthorized") || lower.includes("session") || lower.includes("expired") || lower.includes("forbidden")) {
+    return "Expired session";
+  }
+  if (lower.includes("claude") || lower.includes("502") || lower.includes("503") || lower.includes("500") || lower.includes("timeout")) {
+    return "Unable to contact Claude.ai";
+  }
+  return "Unknown error";
+}
+
+function formatTimestamp(ts: string, precise: boolean): string {
   try {
-    return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const d = new Date(ts);
+    if (precise) {
+      const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      return `Updated at ${time}`;
+    }
+
+    const diffMs = Date.now() - d.getTime();
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffMs / 60_000);
+
+    if (diffSecs < 15) return "Updated just now";
+    if (diffSecs < 60) return "Updated less than a minute ago";
+    if (diffMins < 2) return "Updated 1 minute ago";
+    if (diffMins < 60) return `Updated ${diffMins} minutes ago`;
+
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+    if (d.toDateString() === now.toDateString()) return `Updated at ${timeStr}`;
+    if (d.toDateString() === yesterday.toDateString()) return `Last updated yesterday at ${timeStr}`;
+    return `Last updated ${d.toLocaleDateString([], { month: "short", day: "numeric" })} at ${timeStr}`;
   } catch {
-    return ts;
+    return "Updated";
   }
 }
 
-function maxUtil(usage: UsageData): number | null {
-  const windows = [usage.five_hour, usage.seven_day, usage.seven_day_sonnet]
-    .filter((w): w is UsageWindow => w != null)
-    .map((w) => w.utilization);
-  return windows.length > 0 ? Math.max(...windows) : null;
-}
-
-function StatusDot({ pct }: { pct: number | null }) {
-  const isHigh = pct != null && pct >= 75;
-  const color =
-    pct == null ? "bg-zinc-500"
-    : pct >= 90 ? "bg-red-400"
-    : pct >= 75 ? "bg-orange-400"
-    : pct >= 60 ? "bg-amber-400"
-    : "bg-emerald-400";
-
-  return (
-    <span className="relative flex shrink-0 w-2.5 h-2.5">
-      {isHigh && (
-        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-60 ${color}`} />
-      )}
-      <span className={`relative inline-flex rounded-full w-2.5 h-2.5 ${color}`} />
-    </span>
-  );
-}
-
-export default function Dashboard({ auth, usage, error, onSettings, onRefresh }: Props) {
-  const pct = usage ? maxUtil(usage) : null;
+export default function Dashboard({ usage, error, isRefreshing, isRefreshDisabled, preciseTimestamp, onSettings, onRefresh }: Props) {
+  // Ticker so relative timestamps update automatically
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 20_000);
+    return () => clearInterval(id);
+  }, []);
 
   return (
     <div className="flex flex-col h-full">
       {/* Topbar — drag region */}
       <div
         data-tauri-drag-region
-        className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800/60 select-none"
+        className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800/60 select-none shrink-0"
       >
         <div className="flex items-center gap-2 pointer-events-none">
           <span className="text-amber-500 text-sm leading-none">⊙</span>
@@ -62,9 +80,17 @@ export default function Dashboard({ auth, usage, error, onSettings, onRefresh }:
           <button
             onClick={onRefresh}
             title="Refresh"
-            className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+            disabled={isRefreshDisabled}
+            className="p-1.5 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors disabled:opacity-40"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+              style={isRefreshing ? { animationDirection: "reverse" } : undefined}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
@@ -83,71 +109,57 @@ export default function Dashboard({ auth, usage, error, onSettings, onRefresh }:
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-4">
-        {/* Account row */}
-        <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-3.5 flex items-center gap-3">
-          <StatusDot pct={pct} />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm text-zinc-200 truncate">
-              {auth.email ?? usage?.org_name ?? (auth.mode === "api_key" ? "API Key" : "Connected")}
-            </p>
-            {usage?.org_name && auth.email && (
-              <p className="text-xs text-zinc-500 mt-0.5 truncate">{usage.org_name}</p>
+      <div className="flex-1 overflow-y-auto">
+        {error ? (
+          <div className="flex h-full items-center justify-center px-6">
+            <p className="text-sm text-red-400 text-center">{classifyError(error)}</p>
+          </div>
+        ) : (
+          <div className="px-4 py-4 space-y-3">
+            {/* Loading */}
+            {!usage && (
+              <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-10 text-center">
+                <p className="text-sm text-zinc-500">Fetching usage…</p>
+              </div>
             )}
-          </div>
-          {pct != null && (
-            <span
-              className={`text-sm font-mono font-semibold tabular-nums ${
-                pct >= 90 ? "text-red-400"
-                : pct >= 75 ? "text-orange-400"
-                : pct >= 60 ? "text-amber-400"
-                : "text-emerald-400"
-              }`}
-            >
-              {pct.toFixed(0)}%
-            </span>
-          )}
-        </div>
 
-        {/* Error */}
-        {error && (
-          <div className="rounded-xl bg-red-500/5 border border-red-500/20 px-4 py-3">
-            <p className="text-xs text-red-400">{error}</p>
-          </div>
-        )}
-
-        {/* Loading */}
-        {!usage && !error && (
-          <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-10 text-center">
-            <p className="text-sm text-zinc-500">Fetching usage…</p>
-          </div>
-        )}
-
-        {/* Usage windows */}
-        {usage && (
-          <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-4 space-y-5">
-            <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Usage limits</h2>
-
-            {usage.source === "api_key" ? (
-              <p className="text-sm text-zinc-500 text-center py-2">
-                Usage limits aren't available via API key.<br />
-                <span className="text-xs text-zinc-600">Use a session key for limit tracking.</span>
-              </p>
-            ) : (
+            {/* Usage windows */}
+            {usage && (
               <>
-                {usage.five_hour && (
-                  <UsageBar label="5-hour" utilization={usage.five_hour.utilization} resetsAt={usage.five_hour.resets_at} />
-                )}
-                {usage.seven_day && (
-                  <UsageBar label="7-day" utilization={usage.seven_day.utilization} resetsAt={usage.seven_day.resets_at} />
-                )}
-                {usage.seven_day_sonnet && (
-                  <UsageBar label="7-day (Sonnet)" utilization={usage.seven_day_sonnet.utilization} resetsAt={usage.seven_day_sonnet.resets_at} />
-                )}
-                {!usage.five_hour && !usage.seven_day && !usage.seven_day_sonnet && (
-                  <p className="text-sm text-zinc-500 text-center py-2">
-                    No usage data returned by Claude.ai.
-                  </p>
+                {usage.source === "api_key" ? (
+                  <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-6 text-center space-y-1">
+                    <p className="text-sm text-zinc-400">Usage limits unavailable via API key.</p>
+                    <p className="text-xs text-zinc-600">Use a session key for limit tracking.</p>
+                  </div>
+                ) : (
+                  <>
+                    {!usage.five_hour && !usage.seven_day && !usage.seven_day_sonnet && (
+                      <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-6 text-center">
+                        <p className="text-sm text-zinc-500">No usage data returned by Claude.ai.</p>
+                      </div>
+                    )}
+                    {usage.five_hour && (
+                      <UsageBar
+                        label="5-hour"
+                        utilization={usage.five_hour.utilization}
+                        resetsAt={usage.five_hour.resets_at}
+                      />
+                    )}
+                    {usage.seven_day && (
+                      <UsageBar
+                        label="7-day"
+                        utilization={usage.seven_day.utilization}
+                        resetsAt={usage.seven_day.resets_at}
+                      />
+                    )}
+                    {usage.seven_day_sonnet && (
+                      <UsageBar
+                        label="7-day · Sonnet"
+                        utilization={usage.seven_day_sonnet.utilization}
+                        resetsAt={usage.seven_day_sonnet.resets_at}
+                      />
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -157,8 +169,10 @@ export default function Dashboard({ auth, usage, error, onSettings, onRefresh }:
 
       {/* Footer */}
       {usage && (
-        <div className="px-5 py-3 border-t border-zinc-800/60">
-          <p className="text-xs text-zinc-600 text-center">Updated {formatFetchedAt(usage.fetched_at)}</p>
+        <div className="shrink-0 px-4 py-2.5 border-t border-zinc-800/60">
+          <p className="text-xs text-zinc-600 text-center">
+            {formatTimestamp(usage.fetched_at, preciseTimestamp)}
+          </p>
         </div>
       )}
     </div>

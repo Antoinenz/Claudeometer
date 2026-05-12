@@ -12,6 +12,8 @@ function formatResetsAt(ts: string | null): string | null {
     if (diffMs <= 0) return "soon";
     const h = Math.floor(diffMs / 3_600_000);
     const m = Math.floor((diffMs % 3_600_000) / 60_000);
+    const days = Math.floor(h / 24);
+    if (days > 0) return `${days}d ${h % 24}h`;
     if (h > 0) return `${h}h ${m}m`;
     return `${m}m`;
   } catch {
@@ -33,7 +35,9 @@ const TEXT_COLORS = {
   green:  "text-emerald-400",
 } as const;
 
-function tier(pct: number): keyof typeof GRADIENTS {
+type Tier = keyof typeof GRADIENTS;
+
+function tier(pct: number): Tier {
   if (pct >= 90) return "red";
   if (pct >= 75) return "orange";
   if (pct >= 60) return "amber";
@@ -46,24 +50,22 @@ export default function UsageBar({ label, utilization, resetsAt }: UsageBarProps
   const resets = formatResetsAt(resetsAt);
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-zinc-300">{label}</span>
-        <div className="flex items-center gap-2.5">
-          {resets && (
-            <span className="text-xs text-zinc-500">resets {resets}</span>
-          )}
-          <span className={`tabular-nums font-mono text-xs font-semibold ${TEXT_COLORS[t]}`}>
-            {pct.toFixed(1)}%
-          </span>
-        </div>
+    <div className="rounded-xl bg-zinc-900 border border-zinc-800 px-4 py-4 space-y-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">{label}</span>
+        <span className={`text-3xl font-bold tabular-nums leading-none ${TEXT_COLORS[t]}`}>
+          {Math.round(pct)}<span className="text-lg font-semibold">%</span>
+        </span>
       </div>
-      <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
+      <div className="h-3 w-full rounded-full bg-zinc-800 overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-700 ease-out"
           style={{ width: `${pct}%`, background: GRADIENTS[t] }}
         />
       </div>
+      {resets && (
+        <p className="text-xs text-zinc-500 text-right">resets in {resets}</p>
+      )}
     </div>
   );
 }
