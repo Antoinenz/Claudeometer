@@ -99,7 +99,7 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
     try {
       await invoke("save_settings", { settings });
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setTimeout(() => onBack(), 600);
     } catch (e) {
       setSaveError(String(e));
     } finally {
@@ -207,14 +207,24 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
 
         <Section title="Sync">
           <div className="space-y-1.5">
-            <p className="text-xs text-zinc-500">Poll interval</p>
+            <p className="text-xs text-zinc-500">Automatic poll interval</p>
             <div className="flex gap-2">
+              <button
+                onClick={() => update({ auto_poll: false })}
+                className={`flex-1 text-xs py-1.5 rounded-md border transition-colors ${
+                  !settings.auto_poll
+                    ? "bg-amber-600/10 border-amber-600/40 text-amber-500"
+                    : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                Off
+              </button>
               {INTERVALS.map((i) => (
                 <button
                   key={i.value}
-                  onClick={() => update({ poll_interval_secs: i.value })}
+                  onClick={() => update({ poll_interval_secs: i.value, auto_poll: true })}
                   className={`flex-1 text-xs py-1.5 rounded-md border transition-colors ${
-                    settings.poll_interval_secs === i.value
+                    settings.auto_poll && settings.poll_interval_secs === i.value
                       ? "bg-amber-600/10 border-amber-600/40 text-amber-500"
                       : "bg-zinc-800 border-zinc-700 text-zinc-400 hover:text-zinc-200"
                   }`}
@@ -224,12 +234,6 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
               ))}
             </div>
           </div>
-          <Toggle
-            label="Automatic polling"
-            description="Fetch usage on a background timer"
-            value={settings.auto_poll}
-            onChange={(v) => update({ auto_poll: v })}
-          />
           <Toggle
             label="Refresh on focus"
             description="Fetch new data when the app window gains focus"

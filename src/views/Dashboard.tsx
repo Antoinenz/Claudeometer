@@ -88,7 +88,7 @@ export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, 
         className="flex items-center justify-between px-4 py-2.5 border-b border-zinc-800/60 select-none shrink-0"
       >
         <div className="flex items-center gap-2 pointer-events-none">
-          <span className="text-amber-500 text-sm leading-none">⊙</span>
+          <img src="/icon.png" alt="" className="w-4 h-4 rounded-sm" />
           <span className="text-sm font-medium text-zinc-200">Claudeometer</span>
         </div>
         <div className="flex items-center gap-0.5">
@@ -112,7 +112,7 @@ export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, 
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               {inCooldown && (
-                <span className="absolute -bottom-1 -right-1.5 text-[7px] font-mono leading-none text-zinc-500 bg-[#111111] px-[1px]">
+                <span className="absolute -bottom-1.5 -right-2 text-[9px] font-mono leading-none text-zinc-400 bg-[#111111] px-[1px]">
                   {secsLeft}
                 </span>
               )}
