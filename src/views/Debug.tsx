@@ -122,7 +122,7 @@ export default function Debug({ isFocused, settings, onBack, onSimulate, onShowL
         <div className="flex items-center gap-1.5">
           <button
             onClick={onBack}
-            className="-ml-1.5 p-1.5 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/80 transition-colors"
+            className={`-ml-1.5 p-1.5 rounded-md transition-colors duration-200 ${isFocused ? "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/80" : "text-zinc-700"}`}
             title="Back"
           >
             <svg className="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
