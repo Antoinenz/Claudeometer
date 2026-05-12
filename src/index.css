@@ -26,23 +26,33 @@ body {
   overflow: hidden;
 }
 
-/* Slim, blending scrollbar */
+/* Slim, blending scrollbar — visible on hover for any overflow-y-auto element */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: transparent;
-  border-radius: 3px;
+  border-radius: 999px;
+  transition: background 150ms;
 }
-.flex-1.overflow-y-auto:hover::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.08);
+.overflow-y-auto:hover::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.10);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.18) !important;
+  background: rgba(255,255,255,0.22) !important;
+}
+
+/* Scrollable area with no visible scrollbar — scroll chains to parent at boundaries */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Reset native focus rings on buttons — we draw our own */

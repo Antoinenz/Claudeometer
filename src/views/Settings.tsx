@@ -349,7 +349,7 @@ function RuleList({ rules, onChange }: {
 
   return (
     <div ref={listRef} className="space-y-1.5">
-      <div className="rounded-md border border-zinc-800 bg-zinc-950/60 h-[135px] overflow-y-auto overscroll-y-none">
+      <div className="rounded-md border border-zinc-800 bg-zinc-950/60 h-[135px] overflow-y-auto no-scrollbar">
         {rules.length === 0 ? (
           <div className="flex items-center justify-center h-full text-[11.5px] text-zinc-600">
             No rules — press + to add one
