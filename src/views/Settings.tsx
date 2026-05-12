@@ -349,7 +349,7 @@ function RuleList({ rules, onChange }: {
 
   return (
     <div ref={listRef} className="space-y-1.5">
-      <div className="rounded-md border border-zinc-800 bg-zinc-950/60 h-[135px] overflow-y-auto no-scrollbar">
+      <div className="rounded-md border border-zinc-800 bg-zinc-950 h-[135px] overflow-y-auto no-scrollbar">
         {rules.length === 0 ? (
           <div className="flex items-center justify-center h-full text-[11.5px] text-zinc-600">
             No rules — press + to add one
@@ -359,7 +359,7 @@ function RuleList({ rules, onChange }: {
             <div
               key={rule.id}
               className={`group flex items-center gap-1 px-2.5 py-1.5 text-[12px] cursor-default transition-colors ${
-                i < rules.length - 1 ? "border-b border-zinc-800/80" : ""
+                (i < rules.length - 1 || rules.length <= 4) ? "border-b border-zinc-800/80" : ""
               } ${
                 selectedId === rule.id
                   ? "bg-amber-600/15 text-amber-300"
