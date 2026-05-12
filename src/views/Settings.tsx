@@ -21,7 +21,7 @@ function Toggle({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4">
+    <div className="flex items-center justify-between gap-4">
       <div className="min-w-0 flex-1">
         <p className="text-sm text-zinc-200">{label}</p>
         {description && <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{description}</p>}
@@ -82,9 +82,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function Settings({ auth, onBack, onLogout }: Props) {
   const [settings, setSettings] = useState<SettingsType>(DEFAULT_SETTINGS);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     invoke<SettingsType>("get_settings").then(setSettings);
@@ -93,18 +90,9 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
   const update = (patch: Partial<SettingsType>) =>
     setSettings((s) => ({ ...s, ...patch }));
 
-  const save = async () => {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      await invoke("save_settings", { settings });
-      setSaved(true);
-      setTimeout(() => onBack(), 600);
-    } catch (e) {
-      setSaveError(String(e));
-    } finally {
-      setSaving(false);
-    }
+  const save = () => {
+    invoke("save_settings", { settings }).catch(() => {});
+    onBack();
   };
 
   const INTERVALS = [
@@ -115,7 +103,7 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
   ];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="relative flex flex-col h-full">
       {/* Topbar — drag region */}
       <div
         data-tauri-drag-region
@@ -135,7 +123,7 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
         <WindowControls />
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 py-4 pb-12 space-y-3">
         <Section title="General">
           <Toggle
             label="Launch at startup"
@@ -268,21 +256,13 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
         </Section>
       </div>
 
-      {/* Save bar */}
-      <div className="shrink-0 px-4 py-4 border-t border-zinc-800/60 space-y-2">
-        {saveError && (
-          <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-            {saveError}
-          </p>
-        )}
-        <button
-          onClick={save}
-          disabled={saving}
-          className="w-full bg-amber-600 hover:bg-amber-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white text-sm font-medium py-2.5 rounded-lg transition-colors"
-        >
-          {saved ? "Saved ✓" : saving ? "Saving…" : "Save settings"}
-        </button>
-      </div>
+      {/* Floating save button */}
+      <button
+        onClick={save}
+        className="absolute bottom-3 left-3 text-xs text-zinc-500 hover:text-zinc-200 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-3 py-1.5 rounded-md transition-colors"
+      >
+        Save
+      </button>
     </div>
   );
 }
