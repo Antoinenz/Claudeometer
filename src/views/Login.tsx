@@ -63,19 +63,8 @@ export default function Login({ onLogin, onBack }: Props) {
     <div className="flex flex-col h-full">
       <div
         data-tauri-drag-region
-        className="flex items-center justify-between px-3 py-2 select-none shrink-0"
+        className="flex items-center justify-end px-3 py-2 select-none shrink-0"
       >
-        {onBack ? (
-          <button
-            onClick={onBack}
-            className="-ml-1 p-1.5 rounded-md text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/80 transition-colors"
-            title="Back"
-          >
-            <svg className="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-        ) : <div />}
         <WindowControls />
       </div>
 
@@ -137,6 +126,15 @@ export default function Login({ onLogin, onBack }: Props) {
           </div>
         </div>
       </div>
+
+      {onBack && (
+        <div className="shrink-0 px-4 py-2 border-t border-amber-600/30 bg-amber-600/5 flex items-center justify-between">
+          <p className="text-[10.5px] text-amber-600/80 tracking-tight">Simulating</p>
+          <button onClick={onBack} className="text-[10.5px] text-amber-600/70 hover:text-amber-500 transition-colors">
+            Exit
+          </button>
+        </div>
+      )}
     </div>
   );
 }
