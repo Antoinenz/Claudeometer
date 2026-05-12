@@ -38,6 +38,7 @@ export interface Settings {
   ntfy_rules: NotificationRule[];
   poll_interval_secs: number;
   precise_timestamp: boolean;
+  hide_cooldown_badge: boolean;
   auto_poll: boolean;
   foreground_poll: boolean;
 }
@@ -53,6 +54,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ntfy_rules: [],
   poll_interval_secs: 60,
   precise_timestamp: false,
+  hide_cooldown_badge: false,
   auto_poll: true,
   foreground_poll: true,
 };

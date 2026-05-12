@@ -177,6 +177,7 @@ export default function App() {
           isRefreshing={isRefreshing}
           cooldownEndsAt={cooldownEndsAt}
           preciseTimestamp={settings.precise_timestamp}
+          hideCooldownBadge={settings.hide_cooldown_badge}
           onSettings={() => setView("settings")}
           onRefresh={doRefresh}
         />

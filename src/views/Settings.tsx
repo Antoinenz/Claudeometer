@@ -560,6 +560,11 @@ export default function Settings({ auth, onBack, onLogout }: Props) {
             description="Show exact time instead of relative"
             value={settings.precise_timestamp}
             onChange={(v) => update({ precise_timestamp: v })} />
+          <Toggle
+            label="Hide refresh cooldown"
+            description="Don't show the countdown on the refresh button"
+            value={settings.hide_cooldown_badge}
+            onChange={(v) => update({ hide_cooldown_badge: v })} />
         </Section>
 
         <Section title="Notifications">

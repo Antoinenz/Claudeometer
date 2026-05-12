@@ -38,6 +38,7 @@ pub struct Settings {
     pub ntfy_rules: Vec<NotificationRule>,
     pub poll_interval_secs: u64,
     pub precise_timestamp: bool,
+    pub hide_cooldown_badge: bool,
     pub auto_poll: bool,
     pub foreground_poll: bool,
 }
@@ -55,6 +56,7 @@ impl Default for Settings {
             ntfy_rules: vec![],
             poll_interval_secs: 60,
             precise_timestamp: false,
+            hide_cooldown_badge: false,
             auto_poll: true,
             foreground_poll: true,
         }

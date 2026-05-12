@@ -9,6 +9,7 @@ interface Props {
   isRefreshing: boolean;
   cooldownEndsAt: number | null;
   preciseTimestamp: boolean;
+  hideCooldownBadge: boolean;
   onSettings: () => void;
   onRefresh: () => void;
 }
@@ -88,7 +89,7 @@ function formatTimestamp(ts: string, precise: boolean): string {
   }
 }
 
-export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, preciseTimestamp, onSettings, onRefresh }: Props) {
+export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, preciseTimestamp, hideCooldownBadge, onSettings, onRefresh }: Props) {
   // Ticker so relative timestamps update automatically
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -143,7 +144,7 @@ export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, 
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              {inCooldown && (
+              {inCooldown && !hideCooldownBadge && (
                 <span className="absolute -bottom-1.5 -right-2 text-[9px] font-mono leading-none text-zinc-500 bg-[#101010] px-[1px] tabular-nums">
                   {secsLeft}
                 </span>
