@@ -564,17 +564,36 @@ export default function Settings({ auth, isFocused, onBack, onLogout, onOpenDebu
             onChange={(v) => update({ minimize_to_tray: v })} />
         </Section>
 
-        <Section title="Display">
+        <Section title="Sync">
+          <div className="space-y-1.5">
+            <p className="text-[11px] text-zinc-500 font-medium">Poll interval</p>
+            <div className="flex gap-1 p-0.5 rounded-md bg-zinc-950/60 border border-zinc-800">
+              <button
+                onClick={() => update({ auto_poll: false })}
+                className={`flex-1 text-[11.5px] py-1 rounded transition-all ${
+                  !settings.auto_poll
+                    ? "bg-zinc-800 text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
+                    : "text-zinc-500 hover:text-zinc-300"
+                }`}
+              >Off</button>
+              {INTERVALS.map((i) => (
+                <button
+                  key={i.value}
+                  onClick={() => update({ poll_interval_secs: i.value, auto_poll: true })}
+                  className={`flex-1 text-[11.5px] py-1 rounded transition-all ${
+                    settings.auto_poll && settings.poll_interval_secs === i.value
+                      ? "bg-zinc-800 text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
+                      : "text-zinc-500 hover:text-zinc-300"
+                  }`}
+                >{i.label}</button>
+              ))}
+            </div>
+          </div>
           <Toggle
-            label="Precise timestamp"
-            description="Show exact time instead of relative"
-            value={settings.precise_timestamp}
-            onChange={(v) => update({ precise_timestamp: v })} />
-          <Toggle
-            label="Hide refresh cooldown"
-            description="Don't show the countdown on the refresh button"
-            value={settings.hide_cooldown_badge}
-            onChange={(v) => update({ hide_cooldown_badge: v })} />
+            label="Refresh on focus"
+            description="Fetch when the window gains focus"
+            value={settings.foreground_poll}
+            onChange={(v) => update({ foreground_poll: v })} />
         </Section>
 
         <Section title="Notifications">
@@ -628,36 +647,17 @@ export default function Settings({ auth, isFocused, onBack, onLogout, onOpenDebu
           )}
         </Section>
 
-        <Section title="Sync">
-          <div className="space-y-1.5">
-            <p className="text-[11px] text-zinc-500 font-medium">Poll interval</p>
-            <div className="flex gap-1 p-0.5 rounded-md bg-zinc-950/60 border border-zinc-800">
-              <button
-                onClick={() => update({ auto_poll: false })}
-                className={`flex-1 text-[11.5px] py-1 rounded transition-all ${
-                  !settings.auto_poll
-                    ? "bg-zinc-800 text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
-                    : "text-zinc-500 hover:text-zinc-300"
-                }`}
-              >Off</button>
-              {INTERVALS.map((i) => (
-                <button
-                  key={i.value}
-                  onClick={() => update({ poll_interval_secs: i.value, auto_poll: true })}
-                  className={`flex-1 text-[11.5px] py-1 rounded transition-all ${
-                    settings.auto_poll && settings.poll_interval_secs === i.value
-                      ? "bg-zinc-800 text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
-                      : "text-zinc-500 hover:text-zinc-300"
-                  }`}
-                >{i.label}</button>
-              ))}
-            </div>
-          </div>
+        <Section title="Display">
           <Toggle
-            label="Refresh on focus"
-            description="Fetch when the window gains focus"
-            value={settings.foreground_poll}
-            onChange={(v) => update({ foreground_poll: v })} />
+            label="Precise timestamp"
+            description="Show exact time instead of relative"
+            value={settings.precise_timestamp}
+            onChange={(v) => update({ precise_timestamp: v })} />
+          <Toggle
+            label="Hide refresh cooldown"
+            description="Don't show the countdown on the refresh button"
+            value={settings.hide_cooldown_badge}
+            onChange={(v) => update({ hide_cooldown_badge: v })} />
         </Section>
 
         <Section title="Account">
