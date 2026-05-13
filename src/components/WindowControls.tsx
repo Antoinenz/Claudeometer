@@ -10,10 +10,8 @@ export default function WindowControls({ isFocused = true }: Props) {
     <div className="flex items-center gap-0.5">
       <button
         onClick={() => win.minimize()}
-        className={`p-1.5 flex items-center justify-center rounded-md transition-colors ${
-          isFocused
-            ? "text-zinc-600 hover:text-zinc-200 hover:bg-zinc-800/80"
-            : "text-zinc-700"
+        className={`p-1.5 flex items-center justify-center rounded-md transition-colors hover:text-zinc-200 hover:bg-zinc-800/80 ${
+          isFocused ? "text-zinc-600" : "text-zinc-700"
         }`}
         title="Minimize"
       >
@@ -23,10 +21,8 @@ export default function WindowControls({ isFocused = true }: Props) {
       </button>
       <button
         onClick={() => win.close()}
-        className={`p-1.5 flex items-center justify-center rounded-md transition-colors ${
-          isFocused
-            ? "text-zinc-600 hover:text-red-400 hover:bg-red-500/10"
-            : "text-zinc-700"
+        className={`p-1.5 flex items-center justify-center rounded-md transition-colors hover:text-red-400 hover:bg-red-500/10 ${
+          isFocused ? "text-zinc-600" : "text-zinc-700"
         }`}
         title="Close"
       >
