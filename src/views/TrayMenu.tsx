@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { UsageData } from "../lib/types";
+import { Settings, UsageData } from "../lib/types";
 
 type Arrow = "down" | "up";
+
+const COOLDOWN_MS = 20_000;
 
 const initialArrow: Arrow = window.location.hash === "#tray-menu-up" ? "up" : "down";
 
@@ -32,7 +34,6 @@ function MiniBar({
   utilization: number;
   resetsAt: string | null;
 }) {
-  // The backend returns utilization already as a percentage (0–100), same as UsageBar uses.
   const pct = Math.round(Math.min(100, Math.max(0, utilization)));
   const barColor =
     pct >= 90 ? "bg-red-500"
@@ -75,26 +76,26 @@ function ActionBtn({
   onClick,
   danger,
   spinning,
+  disabled,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
   danger?: boolean;
   spinning?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`flex-1 flex flex-col items-center gap-[3px] py-1.5 rounded-md transition-colors ${
+      disabled={disabled}
+      className={`flex-1 flex flex-col items-center gap-[3px] py-1.5 rounded-md transition-colors disabled:cursor-default ${
         danger
-          ? "text-zinc-500 hover:text-red-400 hover:bg-red-500/10"
-          : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/80"
+          ? "text-zinc-500 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-zinc-500"
+          : "text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/80 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-zinc-500"
       }`}
     >
-      <span
-        className={`w-[14px] h-[14px] flex items-center justify-center ${spinning ? "animate-spin" : ""}`}
-        style={spinning ? { animationDirection: "reverse" } : undefined}
-      >
+      <span className={`w-[14px] h-[14px] flex items-center justify-center ${spinning ? "animate-spin" : ""}`}>
         {icon}
       </span>
       <span className="text-[9.5px] leading-none tracking-tight">{label}</span>
@@ -106,20 +107,43 @@ export default function TrayMenu() {
   const [arrow, setArrow] = useState<Arrow>(initialArrow);
   const [usage, setUsage] = useState<UsageData | null | "loading">("loading");
   const [refreshing, setRefreshing] = useState(false);
+  const [cooldownEndsAt, setCooldownEndsAt] = useState<number | null>(null);
+  const [cooldownSecsLeft, setCooldownSecsLeft] = useState<number>(0);
+  const [hideCooldownBadge, setHideCooldownBadge] = useState(false);
+
+  const manualRefreshRef = useRef(false);
+  const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     invoke<UsageData | null>("get_cached_usage")
       .then((d) => setUsage(d))
       .catch(() => setUsage(null));
 
+    invoke<Settings>("get_settings")
+      .then((s) => setHideCooldownBadge(s.hide_cooldown_badge))
+      .catch(() => {});
+
     const unlistenUsage = listen<UsageData>("usage-updated", (e) => {
       setUsage(e.payload);
+      if (manualRefreshRef.current) {
+        manualRefreshRef.current = false;
+        setRefreshing(false);
+        setCooldownEndsAt(Date.now() + COOLDOWN_MS);
+      }
     });
     const unlistenError = listen<string>("usage-error", () => {
       setUsage(null);
+      if (manualRefreshRef.current) {
+        manualRefreshRef.current = false;
+        setRefreshing(false);
+      }
     });
     const unlistenOrientation = listen<{ arrow: Arrow }>("tray-menu-orientation", (e) => {
       setArrow(e.payload.arrow);
+      // Re-read settings each time the menu opens so hide_cooldown_badge is fresh.
+      invoke<Settings>("get_settings")
+        .then((s) => setHideCooldownBadge(s.hide_cooldown_badge))
+        .catch(() => {});
     });
     return () => {
       unlistenUsage.then((f) => f());
@@ -127,6 +151,29 @@ export default function TrayMenu() {
       unlistenOrientation.then((f) => f());
     };
   }, []);
+
+  // Countdown ticker — runs while cooldown is active.
+  useEffect(() => {
+    if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
+    if (!cooldownEndsAt) {
+      setCooldownSecsLeft(0);
+      return;
+    }
+    const tick = () => {
+      const left = Math.ceil((cooldownEndsAt - Date.now()) / 1000);
+      if (left <= 0) {
+        setCooldownEndsAt(null);
+        setCooldownSecsLeft(0);
+      } else {
+        setCooldownSecsLeft(left);
+      }
+    };
+    tick();
+    cooldownIntervalRef.current = setInterval(tick, 500);
+    return () => {
+      if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
+    };
+  }, [cooldownEndsAt]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -136,10 +183,23 @@ export default function TrayMenu() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // For show/refresh/settings, Rust handles hiding the tray menu after the
-  // main window is in front. Hiding from JS first would lose foreground and
-  // prevent main from coming forward on Windows.
-  const act = async (action: "show" | "refresh" | "settings" | "quit") => {
+  const inCooldown = !!(cooldownEndsAt && Date.now() < cooldownEndsAt);
+
+  const handleRefresh = async () => {
+    if (refreshing || inCooldown) return;
+    manualRefreshRef.current = true;
+    setRefreshing(true);
+    try {
+      await invoke("tray_action", { action: "refresh" });
+      // Spinner clears when usage-updated (or usage-error) fires.
+    } catch (e) {
+      console.error("refresh failed", e);
+      manualRefreshRef.current = false;
+      setRefreshing(false);
+    }
+  };
+
+  const act = async (action: "show" | "settings" | "quit") => {
     try {
       await invoke("tray_action", { action });
     } catch (e) {
@@ -147,15 +207,7 @@ export default function TrayMenu() {
     }
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await invoke("tray_action", { action: "refresh" });
-    } catch (e) {
-      console.error("refresh failed", e);
-    }
-    setRefreshing(false);
-  };
+  const refreshLabel = !hideCooldownBadge && inCooldown ? `${cooldownSecsLeft}s` : "Refresh";
 
   const arrowDown = (
     <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-t-[7px] border-l-transparent border-r-transparent border-t-zinc-900 -mt-px relative z-10" />
@@ -244,13 +296,17 @@ export default function TrayMenu() {
           />
           <ActionBtn
             icon={
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-full h-full">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              // Lucide RefreshCw — symmetric about (12,12), no reverse spin needed
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                <path d="M23 4v6h-6" />
+                <path d="M1 20v-6h6" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
               </svg>
             }
-            label="Refresh"
+            label={refreshLabel}
             onClick={handleRefresh}
             spinning={refreshing}
+            disabled={inCooldown && !refreshing}
           />
           <ActionBtn
             icon={

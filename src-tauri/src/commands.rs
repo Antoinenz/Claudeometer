@@ -2,7 +2,7 @@ use crate::claude::{fetch_claude_usage, UsageData};
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, async_runtime};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_store::StoreExt;
 
@@ -367,8 +367,40 @@ pub fn tray_action(app: AppHandle, action: String) -> Result<(), String> {
             Ok(())
         }
         "refresh" => {
-            bring_main_to_front(&app);
-            app.emit("tray-refresh", ()).map_err(|e| e.to_string())
+            let handle = app.clone();
+            async_runtime::spawn(async move {
+                let store = match handle.store("store.json") {
+                    Ok(s) => s,
+                    Err(_) => return,
+                };
+                let mode = store
+                    .get("auth_mode")
+                    .and_then(|v| v.as_str().map(str::to_string))
+                    .unwrap_or_default();
+                if mode != "session_key" {
+                    let _ = handle.emit("usage-error", "Not authenticated".to_string());
+                    return;
+                }
+                let key = match get_keyring_session_key(&store) {
+                    Ok(k) => k,
+                    Err(e) => {
+                        let _ = handle.emit("usage-error", e);
+                        return;
+                    }
+                };
+                match fetch_claude_usage(&key).await {
+                    Ok(usage) => {
+                        if let Some(cache) = handle.try_state::<UsageCache>() {
+                            *cache.0.lock().unwrap() = Some(usage.clone());
+                        }
+                        let _ = handle.emit("usage-updated", &usage);
+                    }
+                    Err(e) => {
+                        let _ = handle.emit("usage-error", e);
+                    }
+                }
+            });
+            Ok(())
         }
         "settings" => {
             bring_main_to_front(&app);
