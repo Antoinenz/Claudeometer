@@ -29,6 +29,7 @@ export type NotificationRule =
 
 export interface Settings {
   launch_at_startup: boolean;
+  show_in_tray: boolean;
   minimize_to_tray: boolean;
   notifications_enabled: boolean;
   notification_rules: NotificationRule[];
@@ -47,6 +48,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   launch_at_startup: false,
+  show_in_tray: true,
   minimize_to_tray: true,
   notifications_enabled: true,
   notification_rules: [],

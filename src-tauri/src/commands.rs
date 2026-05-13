@@ -77,6 +77,7 @@ pub enum NotificationRule {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Settings {
     pub launch_at_startup: bool,
+    pub show_in_tray: bool,
     pub minimize_to_tray: bool,
     pub notifications_enabled: bool,
     pub notification_rules: Vec<NotificationRule>,
@@ -97,6 +98,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             launch_at_startup: false,
+            show_in_tray: true,
             minimize_to_tray: true,
             notifications_enabled: true,
             notification_rules: vec![],
@@ -271,6 +273,18 @@ pub async fn save_settings(app: AppHandle, settings: Settings) -> Result<(), Str
             let _ = mgr.enable();
         } else {
             let _ = mgr.disable();
+        }
+    }
+
+    // Apply tray visibility immediately — no restart needed.
+    if let Some(tray_state) = app.try_state::<crate::TrayState>() {
+        if let Some(ref tray) = *tray_state.0.lock().unwrap() {
+            let _ = tray.set_visible(settings.show_in_tray);
+        }
+    }
+    if !settings.show_in_tray {
+        if let Some(w) = app.get_webview_window("tray-menu") {
+            let _ = w.hide();
         }
     }
 

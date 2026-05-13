@@ -6,13 +6,16 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{
-    tray::{TrayIconBuilder, TrayIconEvent},
+    tray::{TrayIcon, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_store::StoreExt;
 
 const TRAY_MENU_W: f64 = 220.0;
 const TRAY_MENU_H: f64 = 188.0;
+
+/// Holds the live TrayIcon handle so save_settings can call set_visible() on it.
+pub struct TrayState(pub Mutex<Option<TrayIcon>>);
 
 /// Timestamp of the last time the tray menu was hidden by focus-loss.
 /// Used to debounce tray-icon clicks so that clicking the icon while the
@@ -57,6 +60,7 @@ pub fn run() {
         })
         .manage(commands::UsageCache(std::sync::Mutex::new(None)))
         .manage(TrayLastHide(Mutex::new(None)))
+        .manage(TrayState(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             get_auth_state,
             save_session_key,
@@ -76,7 +80,7 @@ pub fn run() {
 fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
     let icon = app.default_window_icon().cloned().unwrap();
 
-    TrayIconBuilder::new()
+    let tray = TrayIconBuilder::new()
         .icon(icon)
         .tooltip("Claudeometer")
         .show_menu_on_left_click(false)
@@ -91,6 +95,24 @@ fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
             }
         })
         .build(app)?;
+
+    // Apply initial visibility from persisted settings.
+    let show = app
+        .store("store.json")
+        .ok()
+        .and_then(|s| s.get("settings"))
+        .and_then(|v| v.get("show_in_tray").cloned())
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    if !show {
+        let _ = tray.set_visible(false);
+    }
+
+    // Store the handle so save_settings can toggle visibility later.
+    if let Some(state) = app.try_state::<TrayState>() {
+        *state.0.lock().unwrap() = Some(tray);
+    }
+
     Ok(())
 }
 
@@ -227,15 +249,17 @@ fn rect_to_physical(rect: &tauri::Rect, scale: f64) -> (f64, f64, f64, f64) {
 pub fn attach_main_close_behavior(window: &tauri::WebviewWindow, handle: AppHandle) {
     window.on_window_event(move |event| {
         if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-            let minimize = handle
-                .store("store.json")
-                .ok()
-                .and_then(|s| s.get("settings"))
-                .and_then(|v| v.get("minimize_to_tray").cloned())
-                .and_then(|v| v.as_bool())
-                .unwrap_or(true);
+            let store = handle.store("store.json").ok();
+            let get_bool = |key: &str| {
+                store.as_ref()
+                    .and_then(|s| s.get("settings"))
+                    .and_then(|v| v.get(key).cloned())
+                    .and_then(|v| v.as_bool())
+            };
+            let show_in_tray = get_bool("show_in_tray").unwrap_or(true);
+            let minimize = get_bool("minimize_to_tray").unwrap_or(true);
 
-            if minimize {
+            if minimize && show_in_tray {
                 api.prevent_close();
                 if let Some(w) = handle.get_webview_window("main") {
                     let _ = w.hide();

@@ -21,14 +21,16 @@ function Toggle({
   description,
   value,
   onChange,
+  disabled,
 }: {
   label: string;
   description?: string;
   value: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className={`flex items-center justify-between gap-4 transition-opacity ${disabled ? "opacity-40" : ""}`}>
       <div className="min-w-0 flex-1">
         <p className="text-[13px] text-zinc-200">{label}</p>
         {description && (
@@ -36,14 +38,15 @@ function Toggle({
         )}
       </div>
       <button
-        onClick={() => onChange(!value)}
-        className={`relative shrink-0 w-[34px] h-[19px] rounded-full transition-colors ${
-          value ? "bg-amber-600" : "bg-zinc-700/80"
+        onClick={() => !disabled && onChange(!value)}
+        disabled={disabled}
+        className={`relative shrink-0 w-[34px] h-[19px] rounded-full transition-colors disabled:cursor-not-allowed ${
+          value && !disabled ? "bg-amber-600" : "bg-zinc-700/80"
         }`}
       >
         <span
           className={`absolute top-[2px] left-[2px] w-[15px] h-[15px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.4)] transition-transform duration-150 ${
-            value ? "translate-x-[15px]" : "translate-x-0"
+            value && !disabled ? "translate-x-[15px]" : "translate-x-0"
           }`}
         />
       </button>
@@ -559,9 +562,13 @@ export default function Settings({ auth, isFocused, onBack, onLogout, onOpenDebu
           <Toggle label="Launch at startup"
             value={settings.launch_at_startup}
             onChange={(v) => update({ launch_at_startup: v })} />
+          <Toggle label="Show in system tray"
+            value={settings.show_in_tray}
+            onChange={(v) => update({ show_in_tray: v, ...(!v ? { minimize_to_tray: false } : {}) })} />
           <Toggle label="Minimize to tray on close"
             value={settings.minimize_to_tray}
-            onChange={(v) => update({ minimize_to_tray: v })} />
+            onChange={(v) => update({ minimize_to_tray: v })}
+            disabled={!settings.show_in_tray} />
         </Section>
 
         <Section title="Sync">
