@@ -42,12 +42,13 @@ export default function App() {
       setAuth(state);
       setView(state.mode === "none" ? "login" : "dashboard");
       setLoading(false);
+      if (state.mode !== "none") doRefresh();
     });
     invoke<Settings>("get_settings").then((s) => {
       setSettings(s);
       foregroundPollRef.current = s.foreground_poll ?? true;
     }).catch(() => {});
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep foregroundPollRef in sync when settings change
   useEffect(() => {
