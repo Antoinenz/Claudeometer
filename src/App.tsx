@@ -31,11 +31,14 @@ export default function App() {
   // Refs so doRefresh and the focus handler always see the current value without stale closures
   const errorRef = useRef<string | null>(null);
   const foregroundPollRef = useRef<boolean>(true);
+  const authRef = useRef(auth);
 
   const updateError = (e: string | null) => {
     errorRef.current = e;
     setError(e);
   };
+
+  useEffect(() => { authRef.current = auth; }, [auth]);
 
   useEffect(() => {
     invoke<AuthState>("get_auth_state").then((state) => {
@@ -80,9 +83,20 @@ export default function App() {
     const unlistenError = listen<string>("usage-error", (e) => {
       updateError(e.payload);
     });
+    const unlistenTrayRefresh = listen("tray-refresh", () => {
+      doRefresh();
+    });
+    const unlistenTrayNavigate = listen<{ view: string }>("tray-navigate", (e) => {
+      if (e.payload.view === "settings" && authRef.current.mode !== "none") {
+        setSimulation(null);
+        setView("settings");
+      }
+    });
     return () => {
       unlistenUsage.then((f) => f());
       unlistenError.then((f) => f());
+      unlistenTrayRefresh.then((f) => f());
+      unlistenTrayNavigate.then((f) => f());
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

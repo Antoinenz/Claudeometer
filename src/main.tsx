@@ -1,7 +1,19 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import TrayMenu from "./views/TrayMenu";
 import "./index.css";
+
+// The same JS bundle is loaded into every window. The URL fragment tells us
+// which surface this instance should render (e.g. #tray-menu-down, #tray-menu-up).
+const isTrayMenu = window.location.hash.startsWith("#tray-menu");
+
+if (isTrayMenu) {
+  // The tray-menu window is OS-transparent; clear the body's dark fill so the
+  // tooltip can have its own rounded shape with shadow.
+  document.documentElement.style.background = "transparent";
+  document.body.style.background = "transparent";
+}
 
 // ── Strip webview tells ──────────────────────────────────────────────────────
 
@@ -38,6 +50,6 @@ document.addEventListener("keydown", (e) => {
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    {isTrayMenu ? <TrayMenu /> : <App />}
   </React.StrictMode>
 );

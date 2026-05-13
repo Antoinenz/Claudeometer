@@ -1,9 +1,14 @@
 use crate::claude::{fetch_claude_usage, UsageData};
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
-use tauri::AppHandle;
+use std::sync::Mutex;
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_store::StoreExt;
+
+/// Last successfully fetched usage, shared between the background poller,
+/// the fetch_usage command, and the tray menu's get_cached_usage command.
+pub struct UsageCache(pub Mutex<Option<UsageData>>);
 
 const KEYRING_SERVICE: &str = "claudeometer";
 const KEYRING_ACCOUNT: &str = "session_key";
@@ -182,9 +187,18 @@ pub async fn fetch_usage(app: AppHandle) -> Result<UsageData, String> {
             store.set("email", serde_json::Value::String(email.clone()));
         }
         let _ = store.save();
+        // Update shared cache so the tray menu can read it instantly.
+        if let Some(cache) = app.try_state::<UsageCache>() {
+            *cache.0.lock().unwrap() = Some(data.clone());
+        }
     }
 
     result
+}
+
+#[tauri::command]
+pub fn get_cached_usage(state: tauri::State<'_, UsageCache>) -> Option<UsageData> {
+    state.0.lock().unwrap().clone()
 }
 
 #[tauri::command]
@@ -250,4 +264,121 @@ pub fn show_desktop_notification(app: AppHandle, title: String, body: String) ->
         .body(body)
         .show()
         .map_err(|e| e.to_string())
+}
+
+/// Recreate the main window with the same shape as the one declared in
+/// tauri.conf.json. Used when the window has been destroyed (e.g. the user
+/// closed it with minimize_to_tray turned off).
+fn create_main_window(app: &AppHandle) -> Option<tauri::WebviewWindow> {
+    match WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+        .title("Claudeometer")
+        .inner_size(380.0, 600.0)
+        .resizable(false)
+        .center()
+        .decorations(false)
+        .visible(false)
+        .build()
+    {
+        Ok(w) => {
+            crate::attach_main_close_behavior(&w, app.clone());
+            Some(w)
+        }
+        Err(e) => {
+            eprintln!("[tray] failed to recreate main window: {e}");
+            None
+        }
+    }
+}
+
+/// Bring the main window to the foreground reliably, then hide the tray menu.
+///
+/// Steps run on the main thread so that:
+/// - Our process is still foreground (the tray menu is what's currently
+///   focused), which lets Windows actually activate the main window
+/// - ShowWindow's VISIBLE flag is set synchronously before set_focus reads it
+///
+/// We block the worker thread on a channel until the main thread completes,
+/// because Tauri commands run on a worker — without blocking, the command
+/// would return immediately and JS would advance before the show/focus has
+/// actually happened.
+fn bring_main_to_front(app: &AppHandle) {
+    eprintln!("[bring_main] scheduling closure on main thread");
+    let (tx, rx) = std::sync::mpsc::channel::<&'static str>();
+    let handle = app.clone();
+    let scheduled = app.run_on_main_thread(move || {
+        eprintln!("[bring_main] closure running on main thread");
+        let main = handle.get_webview_window("main").or_else(|| {
+            eprintln!("[bring_main] main window missing — recreating");
+            create_main_window(&handle)
+        });
+
+        if let Some(w) = main {
+            eprintln!(
+                "[bring_main] main found: visible={:?} minimized={:?}",
+                w.is_visible(),
+                w.is_minimized()
+            );
+            if let Err(e) = w.unminimize() {
+                eprintln!("[bring_main] unminimize err: {e}");
+            }
+            if let Err(e) = w.show() {
+                eprintln!("[bring_main] show err: {e}");
+            }
+            if let Err(e) = w.set_always_on_top(true) {
+                eprintln!("[bring_main] set_always_on_top(true) err: {e}");
+            }
+            if let Err(e) = w.set_focus() {
+                eprintln!("[bring_main] set_focus err: {e}");
+            }
+            if let Err(e) = w.set_always_on_top(false) {
+                eprintln!("[bring_main] set_always_on_top(false) err: {e}");
+            }
+            eprintln!(
+                "[bring_main] after: visible={:?} focused={:?}",
+                w.is_visible(),
+                w.is_focused()
+            );
+            let _ = tx.send("done");
+        } else {
+            eprintln!("[bring_main] no main window available");
+            let _ = tx.send("no_window");
+        }
+
+        if let Some(w) = handle.get_webview_window("tray-menu") {
+            let _ = w.hide();
+        }
+    });
+
+    match scheduled {
+        Ok(()) => match rx.recv_timeout(std::time::Duration::from_millis(800)) {
+            Ok(status) => eprintln!("[bring_main] completed: {status}"),
+            Err(_) => eprintln!("[bring_main] timed out waiting for main thread"),
+        },
+        Err(e) => eprintln!("[bring_main] run_on_main_thread failed: {e}"),
+    }
+}
+
+#[tauri::command]
+pub fn tray_action(app: AppHandle, action: String) -> Result<(), String> {
+    eprintln!("[tray_action] action={action}");
+    match action.as_str() {
+        "show" => {
+            bring_main_to_front(&app);
+            Ok(())
+        }
+        "refresh" => {
+            bring_main_to_front(&app);
+            app.emit("tray-refresh", ()).map_err(|e| e.to_string())
+        }
+        "settings" => {
+            bring_main_to_front(&app);
+            app.emit("tray-navigate", serde_json::json!({ "view": "settings" }))
+                .map_err(|e| e.to_string())
+        }
+        "quit" => {
+            app.exit(0);
+            Ok(())
+        }
+        other => Err(format!("Unknown tray action: {other}")),
+    }
 }

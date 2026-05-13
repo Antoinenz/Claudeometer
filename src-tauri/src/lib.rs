@@ -6,11 +6,13 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::{
-    menu::{Menu, MenuItem},
     tray::{TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager,
+    AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_store::StoreExt;
+
+const TRAY_MENU_W: f64 = 220.0;
+const TRAY_MENU_H: f64 = 188.0;
 
 /// Tracks utilization and reset-countdown values from the previous poll
 /// so we can implement edge-triggered notification rules.
@@ -48,6 +50,7 @@ pub fn run() {
             setup_close_behavior(app)?;
             Ok(())
         })
+        .manage(commands::UsageCache(std::sync::Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             get_auth_state,
             save_session_key,
@@ -57,73 +60,174 @@ pub fn run() {
             save_settings,
             send_ntfy,
             show_desktop_notification,
+            tray_action,
+            get_cached_usage,
         ])
         .run(tauri::generate_context!())
         .expect("error running Claudeometer");
 }
 
 fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
-    let show = MenuItem::with_id(app, "show", "Show", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit Claudeometer", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show, &quit])?;
-
     let icon = app.default_window_icon().cloned().unwrap();
 
     TrayIconBuilder::new()
         .icon(icon)
-        .menu(&menu)
         .tooltip("Claudeometer")
-        .on_menu_event(|app, event| match event.id.as_ref() {
-            "show" => toggle_window(app),
-            "quit" => app.exit(0),
-            _ => {}
-        })
+        .show_menu_on_left_click(false)
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
-                button: tauri::tray::MouseButton::Left,
                 button_state: tauri::tray::MouseButtonState::Up,
+                rect,
                 ..
             } = event
             {
-                toggle_window(tray.app_handle());
+                toggle_tray_menu(tray.app_handle(), rect);
             }
         })
         .build(app)?;
     Ok(())
 }
 
-fn toggle_window(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        if window.is_visible().unwrap_or(false) {
-            let _ = window.hide();
-        } else {
-            let _ = window.show();
-            let _ = window.set_focus();
+/// Show the custom tray menu window positioned above (or below) the tray icon,
+/// horizontally centered on the icon. If the menu is already visible, hide it.
+fn toggle_tray_menu(app: &AppHandle, tray_rect: tauri::Rect) {
+    if let Some(w) = app.get_webview_window("tray-menu") {
+        if w.is_visible().unwrap_or(false) {
+            let _ = w.hide();
+            return;
         }
     }
+
+    // The tray icon's rect is in physical pixels on Windows. Pick a point inside
+    // it and look up that monitor's scale factor — this stays correct even when
+    // the main window is hidden (which can break main_window.scale_factor()).
+    let probe_x = match tray_rect.position {
+        tauri::Position::Physical(p) => p.x as f64,
+        tauri::Position::Logical(p) => p.x,
+    };
+    let probe_y = match tray_rect.position {
+        tauri::Position::Physical(p) => p.y as f64,
+        tauri::Position::Logical(p) => p.y,
+    };
+    let scale = app
+        .monitor_from_point(probe_x, probe_y)
+        .ok()
+        .flatten()
+        .or_else(|| app.primary_monitor().ok().flatten())
+        .map(|m| m.scale_factor())
+        .unwrap_or(1.0);
+
+    let (icon_x, icon_y, icon_w, icon_h) = rect_to_physical(&tray_rect, scale);
+
+    let menu_w_phys = TRAY_MENU_W * scale;
+    let menu_h_phys = TRAY_MENU_H * scale;
+    let gap = 4.0 * scale;
+
+    let icon_center_x = icon_x + icon_w / 2.0;
+    let mut x = icon_center_x - menu_w_phys / 2.0;
+
+    // Place above the icon by default; flip below if there isn't room.
+    let space_above = icon_y;
+    let below = space_above < menu_h_phys + gap;
+    let y = if below {
+        icon_y + icon_h + gap
+    } else {
+        icon_y - menu_h_phys - gap
+    };
+
+    // Keep on-screen horizontally if the icon is near a corner.
+    if x < 4.0 {
+        x = 4.0;
+    }
+
+    let arrow = if below { "up" } else { "down" };
+
+    let window = match app.get_webview_window("tray-menu") {
+        Some(w) => w,
+        None => match build_tray_menu_window(app, arrow) {
+            Ok(w) => w,
+            Err(_) => return,
+        },
+    };
+
+    let _ = window.set_position(PhysicalPosition::new(x as i32, y as i32));
+    let _ = window.emit(
+        "tray-menu-orientation",
+        serde_json::json!({ "arrow": arrow }),
+    );
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
+fn build_tray_menu_window(app: &AppHandle, arrow: &str) -> tauri::Result<tauri::WebviewWindow> {
+    let url = format!("index.html#tray-menu-{arrow}");
+    let w = WebviewWindowBuilder::new(
+        app,
+        "tray-menu",
+        WebviewUrl::App(url.into()),
+    )
+    .inner_size(TRAY_MENU_W, TRAY_MENU_H)
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .resizable(false)
+    .visible(false)
+    .focused(true)
+    .shadow(false)
+    .build()?;
+
+    // Auto-hide when the menu loses focus (click outside, alt-tab, etc.)
+    let w_clone = w.clone();
+    w.on_window_event(move |e| {
+        if let tauri::WindowEvent::Focused(false) = e {
+            let _ = w_clone.hide();
+        }
+    });
+
+    Ok(w)
+}
+
+fn rect_to_physical(rect: &tauri::Rect, scale: f64) -> (f64, f64, f64, f64) {
+    let (x, y) = match rect.position {
+        tauri::Position::Physical(p) => (p.x as f64, p.y as f64),
+        tauri::Position::Logical(p) => (p.x * scale, p.y * scale),
+    };
+    let (w, h) = match rect.size {
+        tauri::Size::Physical(s) => (s.width as f64, s.height as f64),
+        tauri::Size::Logical(s) => (s.width * scale, s.height * scale),
+    };
+    (x, y, w, h)
+}
+
+/// Attach the close-to-tray interceptor to a main window. Called both for
+/// the initial window at startup and for any window recreated by the tray
+/// menu's Open action.
+pub fn attach_main_close_behavior(window: &tauri::WebviewWindow, handle: AppHandle) {
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            let minimize = handle
+                .store("store.json")
+                .ok()
+                .and_then(|s| s.get("settings"))
+                .and_then(|v| v.get("minimize_to_tray").cloned())
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+
+            if minimize {
+                api.prevent_close();
+                if let Some(w) = handle.get_webview_window("main") {
+                    let _ = w.hide();
+                }
+            }
+        }
+    });
 }
 
 fn setup_close_behavior(app: &mut tauri::App) -> tauri::Result<()> {
     let handle = app.handle().clone();
     if let Some(window) = app.get_webview_window("main") {
-        window.on_window_event(move |event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                let minimize = handle
-                    .store("store.json")
-                    .ok()
-                    .and_then(|s| s.get("settings"))
-                    .and_then(|v| v.get("minimize_to_tray").cloned())
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(true);
-
-                if minimize {
-                    api.prevent_close();
-                    if let Some(w) = handle.get_webview_window("main") {
-                        let _ = w.hide();
-                    }
-                }
-            }
-        });
+        attach_main_close_behavior(&window, handle);
     }
     Ok(())
 }
@@ -176,6 +280,9 @@ async fn poll_once(app: &AppHandle, poll_state: &SharedPollState) {
 
     match result {
         Ok(usage) => {
+            if let Some(cache) = app.try_state::<commands::UsageCache>() {
+                *cache.0.lock().unwrap() = Some(usage.clone());
+            }
             let _ = app.emit("usage-updated", &usage);
             check_notification_rules(app, &usage, poll_state).await;
         }
