@@ -89,9 +89,13 @@ export default function App() {
       doRefresh();
     });
     const unlistenTrayNavigate = listen<{ view: string }>("tray-navigate", (e) => {
-      if (e.payload.view === "settings" && authRef.current.mode !== "none") {
+      if (authRef.current.mode === "none") return;
+      if (e.payload.view === "settings") {
         setSimulation(null);
         setView("settings");
+      } else if (e.payload.view === "dashboard") {
+        setSimulation(null);
+        setView("dashboard");
       }
     });
     // Sync spinner and cooldown with the tray menu via shared Rust events.

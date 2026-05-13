@@ -393,7 +393,8 @@ pub fn tray_action(app: AppHandle, action: String) -> Result<(), String> {
     match action.as_str() {
         "show" => {
             bring_main_to_front(&app);
-            Ok(())
+            app.emit("tray-navigate", serde_json::json!({ "view": "dashboard" }))
+                .map_err(|e| e.to_string())
         }
         "refresh" => {
             let handle = app.clone();
