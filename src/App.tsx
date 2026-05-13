@@ -257,6 +257,7 @@ export default function App() {
           cooldownEndsAt={cooldownEndsAt}
           preciseTimestamp={settings.precise_timestamp}
           hideCooldownBadge={settings.hide_cooldown_badge}
+          showResetTooltip={settings.show_reset_tooltip ?? true}
           isFocused={isFocused}
           isSimulating={!!simulation}
           onSettings={() => setView("settings")}

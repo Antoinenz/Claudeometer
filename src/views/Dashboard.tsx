@@ -10,6 +10,7 @@ interface Props {
   cooldownEndsAt: number | null;
   preciseTimestamp: boolean;
   hideCooldownBadge: boolean;
+  showResetTooltip: boolean;
   isFocused: boolean;
   isSimulating: boolean;
   onSettings: () => void;
@@ -101,7 +102,7 @@ function formatTimestamp(ts: string, precise: boolean): string {
   }
 }
 
-export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, preciseTimestamp, hideCooldownBadge, isFocused, isSimulating, onSettings, onRefresh, onSignOut, onStopSimulation }: Props) {
+export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, preciseTimestamp, hideCooldownBadge, showResetTooltip, isFocused, isSimulating, onSettings, onRefresh, onSignOut, onStopSimulation }: Props) {
   // Ticker so relative timestamps update automatically
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -235,6 +236,7 @@ export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, 
                       label="5-hour"
                       utilization={usage.five_hour.utilization}
                       resetsAt={usage.five_hour.resets_at}
+                      showResetTooltip={showResetTooltip}
                     />
                   )}
                   {usage.seven_day && (
@@ -242,6 +244,7 @@ export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, 
                       label="7-day"
                       utilization={usage.seven_day.utilization}
                       resetsAt={usage.seven_day.resets_at}
+                      showResetTooltip={showResetTooltip}
                     />
                   )}
                   {usage.seven_day_sonnet && (
@@ -249,6 +252,7 @@ export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, 
                       label="7-day Sonnet"
                       utilization={usage.seven_day_sonnet.utilization}
                       resetsAt={usage.seven_day_sonnet.resets_at}
+                      showResetTooltip={showResetTooltip}
                     />
                   )}
                 </>

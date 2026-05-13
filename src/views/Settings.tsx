@@ -665,6 +665,11 @@ export default function Settings({ auth, isFocused, onBack, onLogout, onOpenDebu
             description="Don't show the countdown on the refresh button"
             value={settings.hide_cooldown_badge}
             onChange={(v) => update({ hide_cooldown_badge: v })} />
+          <Toggle
+            label="Reset time tooltip"
+            description="Hover the relative reset time to see the exact date"
+            value={settings.show_reset_tooltip ?? true}
+            onChange={(v) => update({ show_reset_tooltip: v })} />
         </Section>
 
         <Section title="Account">
