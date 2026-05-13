@@ -163,8 +163,10 @@ pub async fn logout(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
-pub async fn fetch_usage(app: AppHandle) -> Result<UsageData, String> {
+/// Inner fetch called by the `fetch_usage` command. Extracted so that `?`
+/// early-returns only exit this function, letting the command wrapper always
+/// emit `refresh-done` regardless of success or failure.
+async fn do_fetch_usage(app: &AppHandle) -> Result<UsageData, String> {
     let store = app.store("store.json").unwrap();
     let mode = store
         .get("auth_mode")
@@ -187,13 +189,44 @@ pub async fn fetch_usage(app: AppHandle) -> Result<UsageData, String> {
             store.set("email", serde_json::Value::String(email.clone()));
         }
         let _ = store.save();
-        // Update shared cache so the tray menu can read it instantly.
         if let Some(cache) = app.try_state::<UsageCache>() {
             *cache.0.lock().unwrap() = Some(data.clone());
         }
     }
 
     result
+}
+
+#[tauri::command]
+pub async fn fetch_usage(app: AppHandle) -> Result<UsageData, String> {
+    let _ = app.emit("refresh-started", ());
+    let result = do_fetch_usage(&app).await;
+    if result.is_ok() {
+        let _ = app.emit("refresh-cooldown", ());
+    }
+    let _ = app.emit("refresh-done", ());
+    result
+}
+
+/// Inner fetch for tray-initiated refreshes. Updates the cache and emits
+/// `usage-updated` on success. `refresh-cooldown` and `refresh-done` are
+/// emitted by the caller so they always fire even on early-return errors.
+async fn do_tray_refresh(handle: &AppHandle) -> Result<(), String> {
+    let store = handle.store("store.json").map_err(|e| e.to_string())?;
+    let mode = store
+        .get("auth_mode")
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default();
+    if mode != "session_key" {
+        return Err("Not authenticated".to_string());
+    }
+    let key = get_keyring_session_key(&store)?;
+    let usage = fetch_claude_usage(&key).await?;
+    if let Some(cache) = handle.try_state::<UsageCache>() {
+        *cache.0.lock().unwrap() = Some(usage.clone());
+    }
+    let _ = handle.emit("usage-updated", &usage);
+    Ok(())
 }
 
 #[tauri::command]
@@ -369,36 +402,12 @@ pub fn tray_action(app: AppHandle, action: String) -> Result<(), String> {
         "refresh" => {
             let handle = app.clone();
             async_runtime::spawn(async move {
-                let store = match handle.store("store.json") {
-                    Ok(s) => s,
-                    Err(_) => return,
-                };
-                let mode = store
-                    .get("auth_mode")
-                    .and_then(|v| v.as_str().map(str::to_string))
-                    .unwrap_or_default();
-                if mode != "session_key" {
-                    let _ = handle.emit("usage-error", "Not authenticated".to_string());
-                    return;
+                let _ = handle.emit("refresh-started", ());
+                match do_tray_refresh(&handle).await {
+                    Ok(()) => { let _ = handle.emit("refresh-cooldown", ()); }
+                    Err(e) => { let _ = handle.emit("usage-error", e); }
                 }
-                let key = match get_keyring_session_key(&store) {
-                    Ok(k) => k,
-                    Err(e) => {
-                        let _ = handle.emit("usage-error", e);
-                        return;
-                    }
-                };
-                match fetch_claude_usage(&key).await {
-                    Ok(usage) => {
-                        if let Some(cache) = handle.try_state::<UsageCache>() {
-                            *cache.0.lock().unwrap() = Some(usage.clone());
-                        }
-                        let _ = handle.emit("usage-updated", &usage);
-                    }
-                    Err(e) => {
-                        let _ = handle.emit("usage-error", e);
-                    }
-                }
+                let _ = handle.emit("refresh-done", ());
             });
             Ok(())
         }

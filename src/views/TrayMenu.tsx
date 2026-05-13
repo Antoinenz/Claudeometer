@@ -111,7 +111,7 @@ export default function TrayMenu() {
   const [cooldownSecsLeft, setCooldownSecsLeft] = useState<number>(0);
   const [hideCooldownBadge, setHideCooldownBadge] = useState(false);
 
-  const manualRefreshRef = useRef(false);
+  const pendingRefreshesRef = useRef(0);
   const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -125,30 +125,35 @@ export default function TrayMenu() {
 
     const unlistenUsage = listen<UsageData>("usage-updated", (e) => {
       setUsage(e.payload);
-      if (manualRefreshRef.current) {
-        manualRefreshRef.current = false;
-        setRefreshing(false);
-        setCooldownEndsAt(Date.now() + COOLDOWN_MS);
-      }
     });
     const unlistenError = listen<string>("usage-error", () => {
       setUsage(null);
-      if (manualRefreshRef.current) {
-        manualRefreshRef.current = false;
-        setRefreshing(false);
-      }
     });
     const unlistenOrientation = listen<{ arrow: Arrow }>("tray-menu-orientation", (e) => {
       setArrow(e.payload.arrow);
-      // Re-read settings each time the menu opens so hide_cooldown_badge is fresh.
       invoke<Settings>("get_settings")
         .then((s) => setHideCooldownBadge(s.hide_cooldown_badge))
         .catch(() => {});
+    });
+    // Shared refresh-lifecycle events — both windows are driven by the same signals.
+    const unlistenRefreshStarted = listen("refresh-started", () => {
+      pendingRefreshesRef.current += 1;
+      setRefreshing(true);
+    });
+    const unlistenRefreshDone = listen("refresh-done", () => {
+      if (pendingRefreshesRef.current > 0) pendingRefreshesRef.current -= 1;
+      if (pendingRefreshesRef.current === 0) setRefreshing(false);
+    });
+    const unlistenRefreshCooldown = listen("refresh-cooldown", () => {
+      setCooldownEndsAt(Date.now() + COOLDOWN_MS);
     });
     return () => {
       unlistenUsage.then((f) => f());
       unlistenError.then((f) => f());
       unlistenOrientation.then((f) => f());
+      unlistenRefreshStarted.then((f) => f());
+      unlistenRefreshDone.then((f) => f());
+      unlistenRefreshCooldown.then((f) => f());
     };
   }, []);
 
@@ -186,16 +191,11 @@ export default function TrayMenu() {
   const inCooldown = !!(cooldownEndsAt && Date.now() < cooldownEndsAt);
 
   const handleRefresh = async () => {
-    if (refreshing || inCooldown) return;
-    manualRefreshRef.current = true;
-    setRefreshing(true);
+    if (refreshing || inCooldown || pendingRefreshesRef.current > 0) return;
     try {
       await invoke("tray_action", { action: "refresh" });
-      // Spinner clears when usage-updated (or usage-error) fires.
     } catch (e) {
       console.error("refresh failed", e);
-      manualRefreshRef.current = false;
-      setRefreshing(false);
     }
   };
 

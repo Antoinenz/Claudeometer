@@ -32,6 +32,8 @@ export default function App() {
   const errorRef = useRef<string | null>(null);
   const foregroundPollRef = useRef<boolean>(true);
   const authRef = useRef(auth);
+  // Counts in-flight refreshes initiated by the tray (not by doRefresh itself)
+  const externalRefreshCountRef = useRef(0);
 
   const updateError = (e: string | null) => {
     errorRef.current = e;
@@ -92,11 +94,45 @@ export default function App() {
         setView("settings");
       }
     });
+    // Sync spinner and cooldown with the tray menu via shared Rust events.
+    // refresh-started fires for every user-triggered fetch (main app or tray).
+    // We only act when doRefresh isn't already running to avoid double-setting.
+    const unlistenRefreshStarted = listen("refresh-started", () => {
+      if (!refreshingRef.current) {
+        externalRefreshCountRef.current += 1;
+        setIsRefreshing(true);
+      }
+    });
+    const unlistenRefreshDone = listen("refresh-done", () => {
+      if (externalRefreshCountRef.current > 0) {
+        externalRefreshCountRef.current -= 1;
+        if (externalRefreshCountRef.current === 0 && !refreshingRef.current) {
+          setIsRefreshing(false);
+        }
+      }
+    });
+    // Start cooldown only when none is already running (prevents a double-reset
+    // when doRefresh's finally block and this event fire close together).
+    const unlistenRefreshCooldown = listen("refresh-cooldown", () => {
+      if (cooldownUntilRef.current <= Date.now()) {
+        if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+        const endsAt = Date.now() + COOLDOWN_MS;
+        cooldownUntilRef.current = endsAt;
+        setCooldownEndsAt(endsAt);
+        cooldownTimerRef.current = setTimeout(() => {
+          cooldownUntilRef.current = 0;
+          setCooldownEndsAt(null);
+        }, COOLDOWN_MS);
+      }
+    });
     return () => {
       unlistenUsage.then((f) => f());
       unlistenError.then((f) => f());
       unlistenTrayRefresh.then((f) => f());
       unlistenTrayNavigate.then((f) => f());
+      unlistenRefreshStarted.then((f) => f());
+      unlistenRefreshDone.then((f) => f());
+      unlistenRefreshCooldown.then((f) => f());
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
