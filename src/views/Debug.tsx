@@ -11,6 +11,7 @@ interface Props {
   onBack: () => void;
   onSimulate: (usage: UsageData | null, error: string | null) => void;
   onShowLogin: () => void;
+  onUpdateSettings: (patch: Partial<Settings>) => void;
 }
 
 // ── Mock data helpers ────────────────────────────────────────────────────────
@@ -103,7 +104,7 @@ function TestButton({ label, status, msg, onClick, disabled }: {
 
 // ── Main Debug view ──────────────────────────────────────────────────────────
 
-export default function Debug({ isFocused, settings, onBack, onSimulate, onShowLogin }: Props) {
+export default function Debug({ isFocused, settings, onBack, onSimulate, onShowLogin, onUpdateSettings }: Props) {
   const [version, setVersion] = useState<string | null>(null);
   const desktop = useNotifTest();
   const ntfy    = useNotifTest();
@@ -210,6 +211,37 @@ export default function Debug({ isFocused, settings, onBack, onSimulate, onShowL
           {!settings.ntfy_enabled && (
             <p className="text-[10.5px] text-zinc-600">Enable ntfy in Settings to test push.</p>
           )}
+        </DebugSection>
+
+        {/* Developer shortcuts */}
+        <DebugSection title="Shortcuts">
+          {[
+            {
+              key: "debug_devtools" as const,
+              label: "Enable DevTools",
+              description: "F12 · Ctrl+Shift+I/J",
+              value: settings.debug_devtools,
+            },
+            {
+              key: "debug_webview_reload" as const,
+              label: "Enable webview reload",
+              description: "Ctrl+Shift+R",
+              value: settings.debug_webview_reload,
+            },
+          ].map(({ key, label, description, value }) => (
+            <div key={key} className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-[12px] text-zinc-300">{label}</p>
+                <p className="text-[10.5px] text-zinc-600 font-mono mt-0.5">{description}</p>
+              </div>
+              <button
+                onClick={() => onUpdateSettings({ [key]: !value })}
+                className={`relative shrink-0 w-[34px] h-[19px] rounded-full transition-colors ${value ? "bg-amber-600" : "bg-zinc-700/80"}`}
+              >
+                <span className={`absolute top-[2px] left-[2px] w-[15px] h-[15px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.4)] transition-transform duration-150 ${value ? "translate-x-[15px]" : "translate-x-0"}`} />
+              </button>
+            </div>
+          ))}
         </DebugSection>
 
         {/* Build info */}

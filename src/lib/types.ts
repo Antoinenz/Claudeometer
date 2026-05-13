@@ -39,6 +39,8 @@ export interface Settings {
   poll_interval_secs: number;
   precise_timestamp: boolean;
   hide_cooldown_badge: boolean;
+  debug_devtools: boolean;
+  debug_webview_reload: boolean;
   auto_poll: boolean;
   foreground_poll: boolean;
 }
@@ -55,6 +57,8 @@ export const DEFAULT_SETTINGS: Settings = {
   poll_interval_secs: 60,
   precise_timestamp: false,
   hide_cooldown_badge: false,
+  debug_devtools: false,
+  debug_webview_reload: false,
   auto_poll: true,
   foreground_poll: true,
 };

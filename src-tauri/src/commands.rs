@@ -39,6 +39,8 @@ pub struct Settings {
     pub poll_interval_secs: u64,
     pub precise_timestamp: bool,
     pub hide_cooldown_badge: bool,
+    pub debug_devtools: bool,
+    pub debug_webview_reload: bool,
     pub auto_poll: bool,
     pub foreground_poll: bool,
 }
@@ -57,6 +59,8 @@ impl Default for Settings {
             poll_interval_secs: 60,
             precise_timestamp: false,
             hide_cooldown_badge: false,
+            debug_devtools: false,
+            debug_webview_reload: false,
             auto_poll: true,
             foreground_poll: true,
         }

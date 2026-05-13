@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AuthState, Settings, UsageData, DEFAULT_SETTINGS } from "./lib/types";
+import { applyDebugFlags } from "./main";
 import Login from "./views/Login";
 import Dashboard from "./views/Dashboard";
 import Settings_ from "./views/Settings";
@@ -52,6 +53,14 @@ export default function App() {
   useEffect(() => {
     foregroundPollRef.current = settings.foreground_poll ?? true;
   }, [settings.foreground_poll]);
+
+  // Sync debug keyboard flags whenever settings change
+  useEffect(() => {
+    applyDebugFlags({
+      devtools:      settings.debug_devtools,
+      webviewReload: settings.debug_webview_reload,
+    });
+  }, [settings.debug_devtools, settings.debug_webview_reload]);
 
   // Background-poll events
   useEffect(() => {
@@ -221,6 +230,13 @@ export default function App() {
           onBack={() => setView("settings")}
           onSimulate={(usage, error) => { setSimulation({ usage, error }); setView("dashboard"); }}
           onShowLogin={() => setView("login-debug")}
+          onUpdateSettings={(patch) => {
+            setSettings((prev) => {
+              const updated = { ...prev, ...patch };
+              invoke("save_settings", { settings: updated }).catch(() => {});
+              return updated;
+            });
+          }}
         />
       )}
       {view === "login-debug" && <Login onLogin={handleLogin} onBack={() => setView("debug")} />}
