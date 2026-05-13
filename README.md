@@ -12,8 +12,8 @@ A lightweight yet feature packed (and and potentially slightly overengineered) d
 - Desktop notifications with customisable rules (threshold, spike, reset soon, recovery)
 - Tray icon with menu
 - [ntfy](https://ntfy.sh) push notification support
-- Session key stored securely in the OS keychain — never written to disk in plain text
-- Minimal footprint — built with Tauri, not Electron
+- Session key stored securely in the OS keychain
+- Minimal footprint - built with Tauri instead of Electron
 
 ## Getting started
 
