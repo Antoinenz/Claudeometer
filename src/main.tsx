@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import App from "./App";
 import TrayMenu from "./views/TrayMenu";
 import "./index.css";
@@ -21,16 +22,35 @@ if (isTrayMenu) {
 document.addEventListener("contextmenu", (e) => e.preventDefault());
 
 // Fix stuck :hover states on Windows/WebView2.
-// When a window is hidden and reshown the browser retains the last :hover
-// state because no mouseleave event fires during hide. Briefly disabling
-// pointer-events on the root forces Chromium to clear hover for every element,
-// then the next frame re-evaluates from the real cursor position.
-window.addEventListener("focus", () => {
-  document.documentElement.style.pointerEvents = "none";
-  requestAnimationFrame(() => {
-    document.documentElement.style.pointerEvents = "";
-  });
-});
+// When a window is hidden and reshown Chromium retains the last :hover state
+// because no mouseleave fires during hide. Setting pointer-events on the root
+// alone is unreliable — elements with pointer-events-auto (Tailwind or inline)
+// override it. Injecting a stylesheet with !important overrides everything, and
+// double-rAF ensures a full paint cycle has flushed before restoring, which
+// covers transitions that would otherwise keep the colour visible for one frame.
+// We guard with a flag so rapid double-fires (browser + Tauri events) collapse.
+let _clearHoverPending = false;
+function clearHoverStates() {
+  if (_clearHoverPending) return;
+  _clearHoverPending = true;
+  const s = document.createElement("style");
+  s.textContent = "* { pointer-events: none !important; }";
+  document.head.appendChild(s);
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => {
+      document.head.removeChild(s);
+      _clearHoverPending = false;
+    })
+  );
+}
+
+// Two listeners for belt-and-suspenders: the browser focus event covers most
+// cases; the Tauri native event catches WebView2 edge cases where the browser
+// event fires late or not at all (e.g. window shown without changing OS focus).
+window.addEventListener("focus", clearHoverStates, true);
+getCurrentWindow()
+  .onFocusChanged(({ payload: focused }) => { if (focused) clearHoverStates(); })
+  .catch(() => {});
 
 // Mutable flags — updated at runtime by App when settings load/change.
 const debugFlags = { devtools: false, webviewReload: false };
