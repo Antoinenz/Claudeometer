@@ -557,7 +557,7 @@ export default function Settings({ auth, isFocused, onBack, onLogout, onOpenDebu
         <WindowControls isFocused={isFocused} />
       </div>
 
-      <div className={`flex-1 overflow-y-auto overscroll-y-none px-3.5 py-3.5 space-y-4 ${!settingsLoaded ? "[&_*]:!transition-none" : ""}`}>
+      <div className={`flex-1 overflow-y-auto overscroll-y-none px-3.5 py-3.5 space-y-4 transition-opacity duration-150 ${!settingsLoaded ? "opacity-0 [&_*]:!transition-none" : ""}`}>
         <Section title="General">
           <Toggle label="Launch at startup"
             value={settings.launch_at_startup}
