@@ -12,8 +12,8 @@ use tauri::{
 };
 use tauri_plugin_store::StoreExt;
 
-const TRAY_MENU_W: f64 = 220.0;
-const TRAY_MENU_H: f64 = 188.0;
+const TRAY_MENU_W: f64 = 246.0;
+const TRAY_MENU_H: f64 = 198.0;
 
 /// Holds the live TrayIcon handle so save_settings can call set_visible() on it.
 pub struct TrayState(pub Mutex<Option<TrayIcon>>);

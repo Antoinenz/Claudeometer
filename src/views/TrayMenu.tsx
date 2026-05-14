@@ -245,12 +245,12 @@ export default function TrayMenu() {
 
   return (
     <div
-      className={`h-screen w-screen flex flex-col items-center bg-transparent select-none px-1.5 ${
-        arrow === "down" ? "pt-1.5 justify-end" : "pb-1.5 justify-start"
+      className={`h-screen w-screen flex flex-col items-center bg-transparent select-none px-4 [filter:drop-shadow(0_4px_8px_rgba(0,0,0,0.5))] ${
+        arrow === "down" ? "pt-2 pb-0.5 justify-end" : "pt-0.5 pb-2 justify-start"
       }`}
     >
       {arrow === "up" && arrowUp}
-      <div className="w-full bg-zinc-900 border border-zinc-800/80 rounded-lg shadow-[0_10px_28px_rgba(0,0,0,0.5)] overflow-hidden">
+      <div className="w-full bg-zinc-900 border border-zinc-800/80 rounded-lg overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center gap-2 px-2.5 pt-2.5 pb-2">
