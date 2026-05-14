@@ -1,52 +1,56 @@
 # Claudeometer
 
-A lightweight yet feature packed (and and potentially slightly overengineered) desktop app for monitoring your [Claude](https://claude.ai) usage limits in real time.
-
-![Tauri](https://img.shields.io/badge/Tauri_v2-000000?logo=tauri) ![React](https://img.shields.io/badge/React_18-000000?logo=react) ![TypeScript](https://img.shields.io/badge/TypeScript-000000?logo=typescript)
+A lightweight desktop app for monitoring Claude.ai usage limits in real time. Built with Tauri v2, Rust, and React.
 
 ## Features
 
-- Live usage bars for your 5-hour, 7-day, and 7-day Sonnet limits
-- Automatic background polling with a configurable interval
-- Refresh on window focus
-- Desktop notifications with customisable rules (threshold, spike, reset soon, recovery)
-- Tray icon with menu
-- [ntfy](https://ntfy.sh) push notification support
-- Session key stored securely in the OS keychain
-- Minimal footprint - built with Tauri instead of Electron
+- **Live usage bars** — live usage bars for your 5-hour, 7-day, and 7-day Sonnet limits
+- **Reset time tooltip** — hover the relative reset time to see the exact date and time
+- **System tray** — compact tray menu with usage summary, one-click refresh, and last-updated timestamp, always synced with the main window
+- **Background polling** — automatic background polling with a configurable interval
+- **Desktop notifications** — rule-based alerts for usage thresholds, spikes, resets, and recoveries
+- **[ntfy](https://ntfy.sh) support** — push notifications to any ntfy server using the same rule system
+- **HTTP API server** — optional local (or network-accessible) REST API for reading usage data, triggering refreshes, and querying settings from scripts and external tools
+- **Minimize to tray** — close button hides the window; the app keeps running in the background
+- **Launch at startup** — register as a login item on all platforms
+- **Credential security** — session key stored in the OS keychain (Windows Credential Manager, macOS Keychain, libsecret on Linux), never written to disk in plain text
+- **Minimal footprint** - built with Tauri instead of Electron
 
-## Getting started
 
-### Prerequisites
+## Installation
 
-- [Rust](https://rustup.rs)
-- [Node.js](https://nodejs.org) (v18+)
-- Tauri CLI v2: `npm install -g @tauri-apps/cli`
+Download the latest release for your platform from the [Releases](https://github.com/Antoinenz/Claudeometer/releases) page:
 
-### Run in development
+| Platform | File |
+|----------|------|
+| Windows  | `.msi` or `.exe` installer |
+| macOS    | `.dmg` (universal — Apple Silicon + Intel) |
+| Linux    | `.deb` or `.AppImage` |
+
+## Setup
+
+1. Open **Claude.ai** in your browser and sign in
+2. Open DevTools → Application → Cookies → find `sessionKey`
+3. Copy the value and paste it into Claudeometer when prompted
+
+The session key is saved to your OS keychain and never stored anywhere else.
+
+## Development
+
+**Prerequisites:** Rust (stable), Node.js (LTS), platform WebView runtime (WebView2 on Windows, pre-installed on macOS/Linux)
 
 ```bash
+# Install dependencies
 npm install
+
+# Run in dev mode (hot-reloads both Vite and Tauri)
 npm run tauri dev
-```
 
-### Build
-
-```bash
+# Build a production bundle
 npm run tauri build
 ```
 
-## Authentication
-
-Claudeometer uses your Claude.ai **session key** to read usage data.
-
-**How to get your session key:**
-
-1. Open [claude.ai](https://claude.ai) and sign in
-2. Open DevTools → Application → Cookies
-3. Copy the value of `sessionKey`
-
-Your session key is stored in the **OS keychain** — Windows Credential Manager on Windows, Keychain on macOS — and is never written to a plain-text file. Only non-sensitive data (display preferences, notification rules) is stored in the app's settings file.
+See [docs/DEVELOPER.md](docs/DEVELOPER.md) for architecture details, the full Tauri event system, and the complete API server reference.
 
 ## Notifications
 
@@ -63,4 +67,4 @@ Both desktop notifications and [ntfy](https://ntfy.sh) push notifications are su
 
 ## License
 
-MIT
+[MIT](https://github.com/Antoinenz/Claudeometer?tab=MIT-1-ov-file)
