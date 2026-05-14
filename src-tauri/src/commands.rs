@@ -208,7 +208,12 @@ pub async fn logout(app: AppHandle) -> Result<(), String> {
     store.delete("session_key"); // remove legacy plain-text key if present
     store.delete("email");
     store.delete("name");
+    store.delete("settings");
     store.save().map_err(|e| e.to_string())?;
+
+    // Stop API server — it will restart with defaults if re-enabled
+    crate::api::apply(&app, &Settings::default());
+
     Ok(())
 }
 
