@@ -1,3 +1,4 @@
+mod api;
 mod claude;
 mod commands;
 
@@ -16,6 +17,9 @@ const TRAY_MENU_H: f64 = 188.0;
 
 /// Holds the live TrayIcon handle so save_settings can call set_visible() on it.
 pub struct TrayState(pub Mutex<Option<TrayIcon>>);
+
+/// Handle to the running API server task — aborted and replaced whenever API settings change.
+pub struct ApiServerHandle(pub Mutex<Option<tauri::async_runtime::JoinHandle<()>>>);
 
 /// Timestamp of the last time the tray menu was hidden by focus-loss.
 /// Used to debounce tray-icon clicks so that clicking the icon while the
@@ -62,12 +66,23 @@ pub fn run() {
             setup_tray(app)?;
             start_polling(app.handle().clone(), poll_state);
             setup_close_behavior(app)?;
+
+            // Start API server if it was enabled in persisted settings.
+            let settings: commands::Settings = app
+                .store("store.json")
+                .ok()
+                .and_then(|s| s.get("settings"))
+                .and_then(|v| serde_json::from_value(v).ok())
+                .unwrap_or_default();
+            api::apply(app.handle(), &settings);
+
             Ok(())
         })
         .manage(commands::UsageCache(std::sync::Mutex::new(None)))
         .manage(TrayLastHide(Mutex::new(None)))
         .manage(TrayLastShow(Mutex::new(None)))
         .manage(TrayState(Mutex::new(None)))
+        .manage(ApiServerHandle(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             get_auth_state,
             save_session_key,

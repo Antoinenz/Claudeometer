@@ -74,6 +74,9 @@ pub enum NotificationRule {
     Recovery { id: String, window: String, below_pct: f64 },
 }
 
+fn default_api_port() -> u16 { 7842 }
+fn default_true() -> bool { true }
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Settings {
     pub launch_at_startup: bool,
@@ -93,6 +96,25 @@ pub struct Settings {
     pub debug_webview_reload: bool,
     pub auto_poll: bool,
     pub foreground_poll: bool,
+    // API server — serde(default) so old stored settings survive an upgrade
+    #[serde(default)]
+    pub api_enabled: bool,
+    #[serde(default = "default_api_port")]
+    pub api_port: u16,
+    #[serde(default = "default_true")]
+    pub api_local_only: bool,
+    #[serde(default = "default_true")]
+    pub api_require_auth: bool,
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default = "default_true")]
+    pub api_allow_read_usage: bool,
+    #[serde(default)]
+    pub api_allow_refresh: bool,
+    #[serde(default)]
+    pub api_allow_read_settings: bool,
+    #[serde(default)]
+    pub api_allow_write_settings: bool,
 }
 
 impl Default for Settings {
@@ -115,6 +137,15 @@ impl Default for Settings {
             debug_webview_reload: false,
             auto_poll: true,
             foreground_poll: true,
+            api_enabled: false,
+            api_port: 7842,
+            api_local_only: true,
+            api_require_auth: true,
+            api_key: String::new(),
+            api_allow_read_usage: true,
+            api_allow_refresh: false,
+            api_allow_read_settings: false,
+            api_allow_write_settings: false,
         }
     }
 }
@@ -229,7 +260,7 @@ pub async fn fetch_usage(app: AppHandle) -> Result<UsageData, String> {
 /// Inner fetch for tray-initiated refreshes. Updates the cache and emits
 /// `usage-updated` on success. `refresh-cooldown` and `refresh-done` are
 /// emitted by the caller so they always fire even on early-return errors.
-async fn do_tray_refresh(handle: &AppHandle) -> Result<(), String> {
+pub(crate) async fn do_tray_refresh(handle: &AppHandle) -> Result<(), String> {
     let store = handle.store("store.json").map_err(|e| e.to_string())?;
     let mode = store
         .get("auth_mode")
@@ -289,6 +320,8 @@ pub async fn save_settings(app: AppHandle, settings: Settings) -> Result<(), Str
             let _ = w.hide();
         }
     }
+
+    crate::api::apply(&app, &settings);
 
     let store = app.store("store.json").unwrap();
     store.set(

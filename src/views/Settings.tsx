@@ -464,6 +464,134 @@ function RuleList({ rules, onChange }: {
   );
 }
 
+// ── API helpers ───────────────────────────────────────────────────────────────
+
+function generateApiKey(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function ApiKeyField({
+  value,
+  onRegenerate,
+}: {
+  value: string;
+  onRegenerate: (key: string) => void;
+}) {
+  const [visible, setVisible] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const display = visible
+    ? value
+    : value.length > 12
+      ? `${value.slice(0, 8)}${"●".repeat(8)}${value.slice(-8)}`
+      : "●".repeat(value.length || 8);
+
+  const copy = () => {
+    if (!value) return;
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[11px] text-zinc-500 font-medium">API key</p>
+      <div className="flex gap-1.5">
+        <div className="flex-1 min-w-0 bg-zinc-950/60 border border-zinc-800 rounded-md px-2.5 py-1.5 font-mono text-[11.5px] text-zinc-300 truncate select-all">
+          {value ? display : <span className="text-zinc-600 font-sans not-italic">No key — click Regen</span>}
+        </div>
+        <button
+          onClick={() => setVisible((v) => !v)}
+          className="shrink-0 px-2 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors text-[11px]"
+        >{visible ? "Hide" : "Show"}</button>
+        <button
+          onClick={copy}
+          disabled={!value}
+          className="shrink-0 px-2 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors text-[11px] disabled:opacity-40 disabled:pointer-events-none"
+        >{copied ? "✓" : "Copy"}</button>
+        <button
+          onClick={() => onRegenerate(generateApiKey())}
+          className="shrink-0 px-2 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors text-[11px]"
+        >Regen</button>
+      </div>
+    </div>
+  );
+}
+
+function ApiPreview({ port, localOnly, requireAuth, apiKey, allowReadUsage }: {
+  port: number;
+  localOnly: boolean;
+  requireAuth: boolean;
+  apiKey: string;
+  allowReadUsage: boolean;
+}) {
+  const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const endpoint = allowReadUsage ? "/usage" : "/";
+  const maskedKey = apiKey.length > 12 ? `${apiKey.slice(0, 8)}…` : apiKey;
+  const authLine = requireAuth && apiKey ? `  -H "Authorization: Bearer ${maskedKey}"` : null;
+  const curlCmd = [`curl ${baseUrl}${endpoint}`, ...(authLine ? [authLine] : [])].join(" \\\n");
+
+  const test = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const headers: Record<string, string> = {};
+      if (requireAuth && apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+      const resp = await fetch(`${baseUrl}/`, { headers });
+      const data = await resp.json().catch(() => ({}));
+      if (resp.ok) {
+        setTestResult({ ok: true, msg: `Connected · Claudeometer v${data.version ?? "?"}` });
+      } else {
+        setTestResult({ ok: false, msg: `${resp.status} ${data.error ?? resp.statusText}` });
+      }
+    } catch {
+      setTestResult({ ok: false, msg: "Connection refused — server may not have started yet" });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <p className="text-[10.5px] font-semibold text-zinc-600 uppercase tracking-[0.08em] px-0.5">Preview</p>
+      <div className="rounded-lg bg-zinc-950 border border-zinc-800/80 px-3 py-2.5 space-y-2">
+        <div>
+          <p className="text-[9.5px] text-zinc-600 font-medium uppercase tracking-wider mb-0.5">Base URL</p>
+          <p className="text-[12px] text-amber-400/80 font-mono">
+            {baseUrl}
+            {!localOnly && (
+              <span className="text-zinc-600 ml-1 font-sans text-[10.5px] not-italic">· also reachable by network</span>
+            )}
+          </p>
+        </div>
+        <div>
+          <p className="text-[9.5px] text-zinc-600 font-medium uppercase tracking-wider mb-0.5">Example</p>
+          <pre className="text-[11px] text-zinc-400 font-mono leading-relaxed whitespace-pre-wrap">{curlCmd}</pre>
+        </div>
+      </div>
+      <div className="flex items-center gap-2.5">
+        <button
+          onClick={test}
+          disabled={testing}
+          className="text-[11.5px] px-2.5 py-1 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-300 hover:text-zinc-100 hover:bg-zinc-700 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+        >
+          {testing ? "Testing…" : "Test connection"}
+        </button>
+        {testResult && (
+          <p className={`text-[11px] ${testResult.ok ? "text-emerald-400" : "text-red-400"}`}>
+            {testResult.ok ? "✓ " : "✗ "}{testResult.msg}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Settings view ───────────────────────────────────────────────────────
 
 export default function Settings({ auth, isFocused, onBack, onLogout, onOpenDebug }: Props) {
@@ -650,6 +778,110 @@ export default function Settings({ auth, isFocused, onBack, onLogout, onOpenDebu
                   rules={settings.ntfy_rules}
                   onChange={(rules) => update({ ntfy_rules: rules })} />
               </div>
+            </>
+          )}
+        </Section>
+
+        <Section title="API">
+          <Toggle
+            label="Enable API server"
+            description="Expose a local HTTP endpoint for querying usage and controlling the app"
+            value={settings.api_enabled}
+            onChange={(v) => update({ api_enabled: v })}
+          />
+          {settings.api_enabled && (
+            <>
+              <div className="space-y-1.5">
+                <label className="text-[11px] text-zinc-500 font-medium">Port</label>
+                <input
+                  type="number"
+                  min={1024}
+                  max={65535}
+                  value={settings.api_port}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value);
+                    if (!isNaN(v)) update({ api_port: Math.min(65535, Math.max(1024, v)) });
+                  }}
+                  className="w-full bg-zinc-950/60 border border-zinc-800 rounded-md px-2.5 py-1.5 text-[12.5px] text-zinc-200 focus:outline-none focus:border-amber-600/50 transition-colors font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="text-[11px] text-zinc-500 font-medium">Access</p>
+                <div className="flex gap-1 p-0.5 rounded-md bg-zinc-950/60 border border-zinc-800">
+                  {([["Local only", true], ["Network", false]] as const).map(([label, val]) => (
+                    <button
+                      key={String(val)}
+                      onClick={() => update({ api_local_only: val })}
+                      className={`flex-1 text-[11.5px] py-1 rounded transition-all ${
+                        settings.api_local_only === val
+                          ? "bg-zinc-800 text-zinc-100 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]"
+                          : "text-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >{label}</button>
+                  ))}
+                </div>
+                {!settings.api_local_only && (
+                  <p className="text-[11px] text-amber-600/90 leading-relaxed">
+                    Anyone on your network can reach this API — use credentials.
+                  </p>
+                )}
+              </div>
+
+              <Toggle
+                label="Require credentials"
+                description="Protect the API with a secret key"
+                value={settings.api_require_auth}
+                onChange={(v) => {
+                  if (v && !settings.api_key) {
+                    update({ api_require_auth: v, api_key: generateApiKey() });
+                  } else {
+                    update({ api_require_auth: v });
+                  }
+                }}
+              />
+              {settings.api_require_auth && (
+                <ApiKeyField
+                  value={settings.api_key}
+                  onRegenerate={(key) => update({ api_key: key })}
+                />
+              )}
+
+              <div className="space-y-2.5">
+                <p className="text-[10px] text-zinc-600 font-medium uppercase tracking-wider px-0.5">Permissions</p>
+                <Toggle
+                  label="Read usage"
+                  description="GET /usage"
+                  value={settings.api_allow_read_usage}
+                  onChange={(v) => update({ api_allow_read_usage: v })}
+                />
+                <Toggle
+                  label="Trigger refresh"
+                  description="POST /usage/refresh"
+                  value={settings.api_allow_refresh}
+                  onChange={(v) => update({ api_allow_refresh: v })}
+                />
+                <Toggle
+                  label="Read settings"
+                  description="GET /settings"
+                  value={settings.api_allow_read_settings}
+                  onChange={(v) => update({ api_allow_read_settings: v })}
+                />
+                <Toggle
+                  label="Modify settings"
+                  description="PATCH /settings"
+                  value={settings.api_allow_write_settings}
+                  onChange={(v) => update({ api_allow_write_settings: v })}
+                />
+              </div>
+
+              <ApiPreview
+                port={settings.api_port}
+                localOnly={settings.api_local_only}
+                requireAuth={settings.api_require_auth}
+                apiKey={settings.api_key}
+                allowReadUsage={settings.api_allow_read_usage}
+              />
             </>
           )}
         </Section>

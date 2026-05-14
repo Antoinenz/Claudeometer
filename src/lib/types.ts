@@ -45,6 +45,15 @@ export interface Settings {
   debug_webview_reload: boolean;
   auto_poll: boolean;
   foreground_poll: boolean;
+  api_enabled: boolean;
+  api_port: number;
+  api_local_only: boolean;
+  api_require_auth: boolean;
+  api_key: string;
+  api_allow_read_usage: boolean;
+  api_allow_refresh: boolean;
+  api_allow_read_settings: boolean;
+  api_allow_write_settings: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -65,4 +74,13 @@ export const DEFAULT_SETTINGS: Settings = {
   debug_webview_reload: false,
   auto_poll: true,
   foreground_poll: true,
+  api_enabled: false,
+  api_port: 7842,
+  api_local_only: true,
+  api_require_auth: true,
+  api_key: "",
+  api_allow_read_usage: true,
+  api_allow_refresh: false,
+  api_allow_read_settings: false,
+  api_allow_write_settings: false,
 };
