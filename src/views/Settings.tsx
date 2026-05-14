@@ -480,6 +480,7 @@ function ApiKeyField({
   onRegenerate: (key: string) => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const [regenPending, setRegenPending] = useState(false);
 
   const display = value.length > 12
     ? `${value.slice(0, 8)}${"●".repeat(8)}${value.slice(-8)}`
@@ -492,6 +493,18 @@ function ApiKeyField({
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const confirmRegen = () => {
+    onRegenerate(generateApiKey());
+    setRegenPending(false);
+  };
+
+  useEffect(() => {
+    if (!regenPending) return;
+    const close = () => setRegenPending(false);
+    window.addEventListener("scroll", close, true);
+    return () => window.removeEventListener("scroll", close, true);
+  }, [regenPending]);
+
   return (
     <div className="space-y-1.5">
       <p className="text-[11px] text-zinc-500 font-medium">API key</p>
@@ -502,12 +515,53 @@ function ApiKeyField({
         <button
           onClick={copy}
           disabled={!value}
-          className="shrink-0 px-2.5 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors text-[11px] disabled:opacity-40 disabled:pointer-events-none"
-        >{copied ? "✓" : "Copy"}</button>
-        <button
-          onClick={() => onRegenerate(generateApiKey())}
-          className="shrink-0 px-2.5 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors text-[11px]"
-        >Regen</button>
+          className="relative shrink-0 px-2.5 rounded-md bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors text-[11px] disabled:opacity-40 disabled:pointer-events-none"
+        >
+          <span className={`transition-opacity duration-100 ${copied ? "opacity-0" : "opacity-100"}`}>Copy</span>
+          <span className={`absolute inset-0 flex items-center justify-center text-emerald-400 transition-opacity duration-100 ${copied ? "opacity-100" : "opacity-0"}`}>✓</span>
+        </button>
+        {/* Regen with confirmation popover */}
+        <div
+          className="relative shrink-0 flex items-stretch"
+          onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setRegenPending(false); }}
+        >
+          <button
+            onClick={() => setRegenPending((p) => !p)}
+            className={`px-2.5 rounded-md border text-[11px] transition-colors ${
+              regenPending
+                ? "bg-zinc-800 border-zinc-700 text-zinc-300"
+                : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            Regen
+          </button>
+          {regenPending && (
+            <div className="absolute right-0 top-full mt-2 z-50 w-44 rounded-lg bg-zinc-900 border border-zinc-700 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+              {/* caret — outside the spaced content div so space-y doesn't add margin-top to it */}
+              <span className="absolute -top-[7px] right-[18px] w-0 h-0 block border-l-[6px] border-r-[6px] border-b-[7px] border-l-transparent border-r-transparent border-b-zinc-700" />
+              <span className="absolute -top-[5px] right-[18px] w-0 h-0 block border-l-[5px] border-r-[5px] border-b-[6px] border-l-transparent border-r-transparent border-b-zinc-900" />
+              <div className="p-2.5 space-y-2">
+                <p className="text-[11px] text-zinc-300 leading-snug">
+                  This will invalidate your current key. Any apps using it will stop working.
+                </p>
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => setRegenPending(false)}
+                    className="flex-1 text-[11px] py-0.5 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmRegen}
+                    className="flex-1 text-[11px] py-0.5 rounded-md bg-red-500/15 border border-red-500/30 text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-colors"
+                  >
+                    Regenerate
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
