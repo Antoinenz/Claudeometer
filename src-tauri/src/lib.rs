@@ -107,6 +107,7 @@ pub fn run() {
             show_desktop_notification,
             tray_action,
             get_cached_usage,
+            get_app_version,
         ])
         .run(tauri::generate_context!())
         .expect("error running Claudeometer");

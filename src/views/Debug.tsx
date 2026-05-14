@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { getVersion } from "@tauri-apps/api/app";
 import { Settings, UsageData } from "../lib/types";
 import UsageBar from "../components/UsageBar";
 import WindowControls from "../components/WindowControls";
@@ -109,7 +108,7 @@ export default function Debug({ isFocused, settings, onBack, onSimulate, onShowL
   const desktop = useNotifTest();
   const ntfy    = useNotifTest();
 
-  useEffect(() => { getVersion().then(setVersion); }, []);
+  useEffect(() => { invoke<string>("get_app_version").then(setVersion); }, []);
 
   const isDev = import.meta.env.DEV;
 
@@ -247,7 +246,7 @@ export default function Debug({ isFocused, settings, onBack, onSimulate, onShowL
         {/* Build info */}
         <DebugSection title="Build">
           {[
-            ["Version",    version ? `v${version}` : "—"],
+            ["Version",    version ?? "—"],
             ["Build mode", isDev ? "Development" : "Production"],
             ["Platform",   navigator.platform || "—"],
           ].map(([k, v]) => (

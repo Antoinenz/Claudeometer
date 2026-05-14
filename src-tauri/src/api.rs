@@ -55,8 +55,8 @@ async fn require_auth(State(state): State<ApiState>, request: Request, next: Nex
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
-async fn handle_root(State(state): State<ApiState>) -> impl IntoResponse {
-    let version = state.app.package_info().version.to_string();
+async fn handle_root(_state: State<ApiState>) -> impl IntoResponse {
+    let version = env!("APP_VERSION");
     Json(json!({
         "status": "ok",
         "app": "Claudeometer",

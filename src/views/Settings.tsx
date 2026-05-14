@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
-import { getVersion } from "@tauri-apps/api/app";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { AuthState, NotificationRule, Settings as SettingsType, DEFAULT_SETTINGS } from "../lib/types";
 import WindowControls from "../components/WindowControls";
@@ -674,7 +673,7 @@ export default function Settings({ auth, isFocused, onBack, onLogout, onOpenDebu
       // otherwise the toggle thumbs animate from their defaults to the saved positions.
       requestAnimationFrame(() => requestAnimationFrame(() => setSettingsLoaded(true)));
     });
-    getVersion().then((v) => setAppVersion(v));
+    invoke<string>("get_app_version").then(setAppVersion);
   }, []);
 
   useEffect(() => {
@@ -1014,7 +1013,7 @@ export default function Settings({ auth, isFocused, onBack, onLogout, onOpenDebu
             <div>
               <p className="text-[13px] font-semibold text-zinc-100 tracking-tight">Claudeometer</p>
               <p className="text-[11.5px] text-zinc-500">
-                {appVersion ? `v${appVersion}` : "—"}
+                {appVersion ?? "—"}
               </p>
             </div>
           </div>

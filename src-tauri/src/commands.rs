@@ -507,3 +507,8 @@ pub fn tray_action(app: AppHandle, action: String) -> Result<(), String> {
         other => Err(format!("Unknown tray action: {other}")),
     }
 }
+
+#[tauri::command]
+pub fn get_app_version() -> String {
+    env!("APP_VERSION").to_string()
+}
