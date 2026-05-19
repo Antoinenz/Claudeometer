@@ -68,5 +68,3 @@ Both desktop notifications and [ntfy](https://ntfy.sh) push notifications are su
 ## License
 
 [MIT](https://github.com/Antoinenz/Claudeometer?tab=MIT-1-ov-file)
-
-test verfied commit
