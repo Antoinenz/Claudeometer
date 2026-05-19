@@ -123,7 +123,7 @@ impl Default for Settings {
             launch_at_startup: false,
             show_in_tray: true,
             minimize_to_tray: true,
-            notifications_enabled: true,
+            notifications_enabled: false,
             notification_rules: vec![],
             ntfy_enabled: false,
             ntfy_server: "https://ntfy.sh".to_string(),
