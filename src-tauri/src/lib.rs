@@ -248,6 +248,7 @@ fn build_tray_menu_window(app: &AppHandle, arrow: &str) -> tauri::Result<tauri::
         "tray-menu",
         WebviewUrl::App(url.into()),
     )
+    .title("Claudeometer Tray")
     .inner_size(TRAY_MENU_W, TRAY_MENU_H)
     .decorations(false)
     .transparent(true)
