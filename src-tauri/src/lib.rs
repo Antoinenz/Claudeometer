@@ -62,6 +62,13 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .setup(move |app| {
             setup_tray(app)?;
             start_polling(app.handle().clone(), poll_state);
@@ -79,6 +86,15 @@ pub fn run() {
             if !is_signed_in {
                 use tauri_plugin_autostart::ManagerExt;
                 let _ = app.autolaunch().disable();
+            }
+
+            // On dev builds, reflect the version in the OS window title so it's
+            // visible in Task Manager and the alt-tab switcher.
+            let version = env!("APP_VERSION");
+            if version.starts_with("dev") {
+                if let Some(main_window) = app.get_webview_window("main") {
+                    let _ = main_window.set_title(&format!("Claudeometer App [{}]", version));
+                }
             }
 
             // Start API server if it was enabled in persisted settings.
