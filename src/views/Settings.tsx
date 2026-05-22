@@ -2,15 +2,32 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
-import { AuthState, NotificationRule, Settings as SettingsType, DEFAULT_SETTINGS } from "../lib/types";
+import { AuthState, NotificationRule, Settings as SettingsType, DEFAULT_SETTINGS, UsageData } from "../lib/types";
 import WindowControls from "../components/WindowControls";
 
 interface Props {
   auth: AuthState;
+  usage: UsageData | null;
   isFocused: boolean;
   onBack: () => void;
   onLogout: () => void;
   onOpenDebug: () => void;
+}
+
+function TierBadge({ tier }: { tier: string }) {
+  const styles: Record<string, string> = {
+    Free:       "bg-zinc-800 text-zinc-400 border-zinc-700",
+    Pro:        "bg-amber-500/15 text-amber-400 border-amber-500/30",
+    Max:        "bg-purple-500/15 text-purple-400 border-purple-500/30",
+    Team:       "bg-sky-500/15 text-sky-400 border-sky-500/30",
+    Enterprise: "bg-teal-500/15 text-teal-400 border-teal-500/30",
+  };
+  const cls = styles[tier] ?? styles.Free;
+  return (
+    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border tracking-wide ${cls}`}>
+      {tier}
+    </span>
+  );
 }
 
 // ── Primitives ───────────────────────────────────────────────────────────────
@@ -655,7 +672,7 @@ function ApiPreview({ port, requireAuth, apiKey, allowReadUsage }: {
 
 // ── Main Settings view ───────────────────────────────────────────────────────
 
-export default function Settings({ auth, isFocused, onBack, onLogout, onOpenDebug }: Props) {
+export default function Settings({ auth, usage, isFocused, onBack, onLogout, onOpenDebug }: Props) {
   const [settings, setSettings]           = useState<SettingsType>(DEFAULT_SETTINGS);
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [ntfyTesting, setNtfyTesting]     = useState(false);
@@ -980,7 +997,10 @@ export default function Settings({ auth, isFocused, onBack, onLogout, onOpenDebu
               </span>
             </div>
             <div className="min-w-0 flex-1">
-              {auth.name && <p className="text-[13px] text-zinc-200 truncate">{auth.name}</p>}
+              <div className="flex items-center gap-1.5 min-w-0">
+                {auth.name && <p className="text-[13px] text-zinc-200 truncate">{auth.name}</p>}
+                {usage?.tier && <TierBadge tier={usage.tier} />}
+              </div>
               {auth.email && (
                 <p className={`${auth.name ? "text-[11.5px] text-zinc-500" : "text-[13px] text-zinc-300"} truncate`}>
                   {auth.email}

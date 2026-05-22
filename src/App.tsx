@@ -273,6 +273,7 @@ export default function App() {
       {view === "settings" && (
         <Settings_
           auth={auth}
+          usage={usage}
           isFocused={isFocused}
           onBack={handleBackFromSettings}
           onLogout={handleLogout}

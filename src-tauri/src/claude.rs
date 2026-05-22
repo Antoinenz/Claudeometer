@@ -19,6 +19,7 @@ pub struct UsageData {
     pub org_name: Option<String>,
     pub name: Option<String>,
     pub email: Option<String>,
+    pub tier: String,
     pub fetched_at: String,
     pub source: String,
 }
@@ -41,6 +42,20 @@ impl UsageData {
 struct OrgEntry {
     uuid: String,
     name: Option<String>,
+    capabilities: Option<Vec<String>>,
+}
+
+fn infer_tier(capabilities: &Option<Vec<String>>) -> String {
+    let caps = match capabilities {
+        Some(c) if !c.is_empty() => c,
+        _ => return "Free".to_string(),
+    };
+    let has = |s: &str| caps.iter().any(|c| c.to_lowercase().contains(s));
+    if has("enterprise") { "Enterprise".to_string() }
+    else if has("team") || has("raven") { "Team".to_string() }
+    else if has("max") { "Max".to_string() }
+    else if has("pro") { "Pro".to_string() }
+    else { "Free".to_string() }
 }
 
 #[derive(Deserialize)]
@@ -157,6 +172,7 @@ pub async fn fetch_claude_usage(session_key: &str) -> Result<UsageData, String> 
         .await
         .map_err(|e| format!("Failed to parse usage response: {e}"))?;
 
+    let tier = infer_tier(&org.capabilities);
     Ok(UsageData {
         five_hour: api.five_hour.map(|w| UsageWindow { utilization: w.utilization, resets_at: w.resets_at }),
         seven_day: api.seven_day.map(|w| UsageWindow { utilization: w.utilization, resets_at: w.resets_at }),
@@ -164,6 +180,7 @@ pub async fn fetch_claude_usage(session_key: &str) -> Result<UsageData, String> 
         org_name: org.name,
         name: user_name,
         email: user_email,
+        tier,
         fetched_at: chrono::Utc::now().to_rfc3339(),
         source: "claude_ai".to_string(),
     })

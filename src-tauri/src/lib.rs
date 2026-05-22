@@ -12,6 +12,27 @@ use tauri::{
 };
 use tauri_plugin_store::StoreExt;
 
+#[cfg(target_os = "windows")]
+#[link(name = "kernel32")]
+extern "system" {
+    fn GetCurrentProcess() -> isize;
+    fn LoadLibraryW(name: *const u16) -> isize;
+    fn GetProcAddress(module: isize, name: *const u8) -> *const ();
+}
+
+#[cfg(target_os = "windows")]
+unsafe fn set_process_description(desc: &str) {
+    type Fn = unsafe extern "system" fn(isize, *const u16) -> i32;
+    let dll: Vec<u16> = "KernelBase.dll\0".encode_utf16().collect();
+    let module = LoadLibraryW(dll.as_ptr());
+    if module == 0 { return; }
+    let proc = GetProcAddress(module, b"SetProcessDescription\0".as_ptr());
+    if proc.is_null() { return; }
+    let f: Fn = std::mem::transmute(proc);
+    let wide: Vec<u16> = desc.encode_utf16().chain(std::iter::once(0u16)).collect();
+    let _ = f(GetCurrentProcess(), wide.as_ptr());
+}
+
 const TRAY_MENU_W: f64 = 246.0;
 const TRAY_MENU_H: f64 = 198.0;
 
@@ -92,9 +113,13 @@ pub fn run() {
             // visible in Task Manager and the alt-tab switcher.
             let version = env!("APP_VERSION");
             if version.starts_with("dev") {
+                let dev_title = format!("Claudeometer App [{}]", version);
                 if let Some(main_window) = app.get_webview_window("main") {
-                    let _ = main_window.set_title(&format!("Claudeometer App [{}]", version));
+                    let _ = main_window.set_title(&dev_title);
                 }
+                // Also update the process-level description visible in Task Manager's Details tab.
+                #[cfg(target_os = "windows")]
+                unsafe { set_process_description(&dev_title); }
             }
 
             // Start API server if it was enabled in persisted settings.

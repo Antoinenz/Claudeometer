@@ -10,6 +10,7 @@ export interface UsageData {
   org_name: string | null;
   name: string | null;
   email: string | null;
+  tier: string;
   fetched_at: string;
   source: string;
 }
