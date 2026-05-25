@@ -79,7 +79,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
+            Some(vec!["--minimized"]),
         ))
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_shell::init())
@@ -103,10 +103,25 @@ pub fn run() {
                 .unwrap_or(false);
 
             // Enforce: no autostart until user is signed in.
+            // If signed in with autostart on, re-register on every launch so the OS entry
+            // always reflects the current launch args (e.g. picks up --minimized).
             #[cfg(desktop)]
-            if !is_signed_in {
+            {
                 use tauri_plugin_autostart::ManagerExt;
-                let _ = app.autolaunch().disable();
+                let mgr = app.autolaunch();
+                if !is_signed_in {
+                    let _ = mgr.disable();
+                } else if settings.launch_at_startup {
+                    let _ = mgr.enable();
+                }
+            }
+
+            // If launched by the OS at startup, start hidden in the tray.
+            let launched_at_startup = std::env::args().any(|a| a == "--minimized");
+            if launched_at_startup && settings.show_in_tray {
+                if let Some(main_window) = app.get_webview_window("main") {
+                    let _ = main_window.hide();
+                }
             }
 
             // On dev builds, reflect the version in the OS window title so it's
