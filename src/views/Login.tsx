@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open as openUrl } from "@tauri-apps/plugin-shell";
 import { AuthState } from "../lib/types";
 import WindowControls from "../components/WindowControls";
@@ -63,7 +64,8 @@ export default function Login({ onLogin, onBack }: Props) {
     <div className="flex flex-col h-full">
       <div
         data-tauri-drag-region
-        className="flex items-center justify-end h-[48px] px-3.5 border-b border-transparent select-none shrink-0"
+        className="flex items-center justify-end h-[48px] px-3.5 border-b border-transparent select-none shrink-0 touch-none"
+        onPointerDown={(e) => { if (e.pointerType !== "mouse") getCurrentWindow().startDragging(); }}
       >
         <WindowControls />
       </div>

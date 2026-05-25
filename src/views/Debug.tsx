@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Settings, UsageData } from "../lib/types";
 import UsageBar from "../components/UsageBar";
 import WindowControls from "../components/WindowControls";
@@ -118,7 +119,8 @@ export default function Debug({ isFocused, settings, onBack, onSimulate, onShowL
       {/* Topbar */}
       <div
         data-tauri-drag-region
-        className="flex items-center justify-between h-[48px] px-3.5 border-b border-zinc-800/60 select-none shrink-0 bg-gradient-to-b from-[#141414] to-[#101010]"
+        className="flex items-center justify-between h-[48px] px-3.5 border-b border-zinc-800/60 select-none shrink-0 touch-none bg-gradient-to-b from-[#141414] to-[#101010]"
+        onPointerDown={(e) => { if (e.pointerType !== "mouse") getCurrentWindow().startDragging(); }}
       >
         <div className="flex items-center gap-1.5">
           <button

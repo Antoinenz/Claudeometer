@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { UsageData } from "../lib/types";
 import UsageBar from "../components/UsageBar";
 import WindowControls from "../components/WindowControls";
@@ -131,7 +132,8 @@ export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, 
       {/* Topbar */}
       <div
         data-tauri-drag-region
-        className="flex items-center justify-between h-[48px] px-3.5 border-b border-zinc-800/60 select-none shrink-0 bg-gradient-to-b from-[#141414] to-[#101010]"
+        className="flex items-center justify-between h-[48px] px-3.5 border-b border-zinc-800/60 select-none shrink-0 touch-none bg-gradient-to-b from-[#141414] to-[#101010]"
+        onPointerDown={(e) => { if (e.pointerType !== "mouse") getCurrentWindow().startDragging(); }}
       >
         <div className="flex items-center gap-2 pointer-events-none">
           <img src="/icon.png" alt="" className="w-[18px] h-[18px] rounded" draggable={false} />
