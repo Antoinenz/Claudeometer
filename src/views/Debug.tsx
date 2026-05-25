@@ -24,6 +24,7 @@ function mockUsage(five: number, seven: number, sonnet?: number): UsageData {
     org_name: null,
     name:  "Debug User",
     email: "debug@example.com",
+    tier:  "Pro",
     fetched_at: new Date().toISOString(),
     source: "claude_ai",
   };

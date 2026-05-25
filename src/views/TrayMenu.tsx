@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Settings, UsageData } from "../lib/types";
 
@@ -116,6 +116,7 @@ function ActionBtn({
 export default function TrayMenu() {
   const [arrow, setArrow] = useState<Arrow>(initialArrow);
   const [usage, setUsage] = useState<UsageData | null | "loading">("loading");
+  const [simulatedData, setSimulatedData] = useState<{ usage: UsageData | null; error: string | null } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [cooldownEndsAt, setCooldownEndsAt] = useState<number | null>(null);
   const [cooldownSecsLeft, setCooldownSecsLeft] = useState<number>(0);
@@ -123,6 +124,7 @@ export default function TrayMenu() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [, setTick] = useState(0);
 
+  const isSimulatingRef = useRef(false);
   const pendingRefreshesRef = useRef(0);
   const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -139,11 +141,21 @@ export default function TrayMenu() {
       .catch(() => {});
 
     const unlistenUsage = listen<UsageData>("usage-updated", (e) => {
-      setUsage(e.payload);
-      setLastUpdatedAt(Date.now());
+      if (!isSimulatingRef.current) {
+        setUsage(e.payload);
+        setLastUpdatedAt(Date.now());
+      }
     });
     const unlistenError = listen<string>("usage-error", () => {
-      setUsage(null);
+      if (!isSimulatingRef.current) setUsage(null);
+    });
+    const unlistenSimSet = listen<{ usage: UsageData | null; error: string | null }>("simulation-set", (e) => {
+      isSimulatingRef.current = true;
+      setSimulatedData(e.payload);
+    });
+    const unlistenSimClear = listen("simulation-cleared", () => {
+      isSimulatingRef.current = false;
+      setSimulatedData(null);
     });
     const unlistenOrientation = listen<{ arrow: Arrow }>("tray-menu-orientation", (e) => {
       setArrow(e.payload.arrow);
@@ -170,6 +182,8 @@ export default function TrayMenu() {
       unlistenRefreshStarted.then((f) => f());
       unlistenRefreshDone.then((f) => f());
       unlistenRefreshCooldown.then((f) => f());
+      unlistenSimSet.then((f) => f());
+      unlistenSimClear.then((f) => f());
     };
   }, []);
 
@@ -212,9 +226,10 @@ export default function TrayMenu() {
   }, []);
 
   const inCooldown = !!(cooldownEndsAt && Date.now() < cooldownEndsAt);
+  const isSimulating = simulatedData !== null;
 
   const handleRefresh = async () => {
-    if (refreshing || inCooldown || pendingRefreshesRef.current > 0) return;
+    if (refreshing || inCooldown || pendingRefreshesRef.current > 0 || isSimulating) return;
     try {
       await invoke("tray_action", { action: "refresh" });
     } catch (e) {
@@ -239,8 +254,9 @@ export default function TrayMenu() {
     <div className="w-0 h-0 border-l-[6px] border-r-[6px] border-b-[7px] border-l-transparent border-r-transparent border-b-zinc-900 -mb-px relative z-10" />
   );
 
-  const usageData = usage !== "loading" ? usage : null;
-  const isLoading = usage === "loading";
+  const usageData = isSimulating ? simulatedData!.usage : (usage !== "loading" ? usage : null);
+  const isLoading = isSimulating ? (simulatedData!.usage === null && simulatedData!.error === null) : usage === "loading";
+  const simulationError = isSimulating ? simulatedData!.error : null;
   const hasAny = usageData && (usageData.five_hour || usageData.seven_day || usageData.seven_day_sonnet);
 
   return (
@@ -258,7 +274,11 @@ export default function TrayMenu() {
           <span className="text-[11.5px] font-semibold text-zinc-200 tracking-tight leading-none">
             Claudeometer
           </span>
-          {lastUpdatedAt && (
+          {isSimulating ? (
+            <span className="ml-auto text-[10.5px] text-amber-600/80 tracking-tight leading-none shrink-0">
+              Simulating
+            </span>
+          ) : lastUpdatedAt && (
             <span className="ml-auto text-[9.5px] text-zinc-600 font-mono tabular-nums leading-none shrink-0">
               {formatAgo(lastUpdatedAt)}
             </span>
@@ -278,7 +298,7 @@ export default function TrayMenu() {
           )}
           {!isLoading && !hasAny && (
             <div className="py-1 text-center text-[10.5px] text-zinc-600">
-              {usageData === null ? "Could not load usage" : "No usage data available"}
+              {simulationError ?? (usageData === null ? "Could not load usage" : "No usage data available")}
             </div>
           )}
           {hasAny && (
@@ -322,20 +342,36 @@ export default function TrayMenu() {
             label="Open"
             onClick={() => act("show")}
           />
-          <ActionBtn
-            icon={
-              // Lucide RefreshCw — symmetric about (12,12), no reverse spin needed
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
-                <path d="M23 4v6h-6" />
-                <path d="M1 20v-6h6" />
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-              </svg>
-            }
-            label={refreshLabel}
-            onClick={handleRefresh}
-            spinning={refreshing}
-            disabled={inCooldown && !refreshing}
-          />
+          {isSimulating ? (
+            <ActionBtn
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                  <path d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              }
+              label="Exit Sim"
+              onClick={() => {
+                isSimulatingRef.current = false;
+                setSimulatedData(null);
+                emit("simulation-stop-requested", {});
+              }}
+            />
+          ) : (
+            <ActionBtn
+              icon={
+                // Lucide RefreshCw — symmetric about (12,12), no reverse spin needed
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-full h-full">
+                  <path d="M23 4v6h-6" />
+                  <path d="M1 20v-6h6" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
+              }
+              label={refreshLabel}
+              onClick={handleRefresh}
+              spinning={refreshing}
+              disabled={inCooldown && !refreshing}
+            />
+          )}
           <ActionBtn
             icon={
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-full h-full">

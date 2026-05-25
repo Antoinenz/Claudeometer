@@ -149,6 +149,7 @@ pub fn run() {
             tray_action,
             get_cached_usage,
             get_app_version,
+            set_tray_visible,
         ])
         .run(tauri::generate_context!())
         .expect("error running Claudeometer");
@@ -352,6 +353,13 @@ pub fn attach_main_close_behavior(window: &tauri::WebviewWindow, handle: AppHand
             };
             let show_in_tray = get_bool("show_in_tray").unwrap_or(true);
             let minimize = get_bool("minimize_to_tray").unwrap_or(true);
+
+            // Restore tray visibility — may have been hidden for login-debug simulation.
+            if let Some(tray_state) = handle.try_state::<crate::TrayState>() {
+                if let Some(ref tray) = *tray_state.0.lock().unwrap() {
+                    let _ = tray.set_visible(show_in_tray);
+                }
+            }
 
             if minimize && show_in_tray {
                 api.prevent_close();

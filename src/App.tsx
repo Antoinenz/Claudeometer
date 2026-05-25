@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listen, emitTo } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AuthState, Settings, UsageData, DEFAULT_SETTINGS } from "./lib/types";
 import { applyDebugFlags } from "./main";
@@ -92,9 +92,9 @@ export default function App() {
       if (authRef.current.mode === "none") return;
       if (e.payload.view === "settings") {
         setSimulation(null);
+        emitTo("tray-menu", "simulation-cleared", {});
         setView("settings");
       } else if (e.payload.view === "dashboard") {
-        setSimulation(null);
         setView("dashboard");
       }
     });
@@ -129,6 +129,10 @@ export default function App() {
         }, COOLDOWN_MS);
       }
     });
+    const unlistenSimStop = listen("simulation-stop-requested", () => {
+      setSimulation(null);
+      setView("debug");
+    });
     return () => {
       unlistenUsage.then((f) => f());
       unlistenError.then((f) => f());
@@ -137,8 +141,21 @@ export default function App() {
       unlistenRefreshStarted.then((f) => f());
       unlistenRefreshDone.then((f) => f());
       unlistenRefreshCooldown.then((f) => f());
+      unlistenSimStop.then((f) => f());
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Hide the tray while the login-debug simulation is active; restore on exit.
+  // The close handler in Rust also restores tray visibility so the user is never stranded.
+  useEffect(() => {
+    if (view !== "login-debug") return;
+    invoke("set_tray_visible", { visible: false });
+    return () => {
+      invoke<Settings>("get_settings").then((s) => {
+        invoke("set_tray_visible", { visible: s.show_in_tray });
+      }).catch(() => {});
+    };
+  }, [view]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ctrl+R → refresh (page reload is already blocked in main.tsx)
   useEffect(() => {
@@ -267,7 +284,7 @@ export default function App() {
           onSettings={() => setView("settings")}
           onRefresh={doRefresh}
           onSignOut={handleLogout}
-          onStopSimulation={() => { setSimulation(null); setView("debug"); }}
+          onStopSimulation={() => { setSimulation(null); setView("debug"); emitTo("tray-menu", "simulation-cleared", {}); }}
         />
       )}
       {view === "settings" && (
@@ -285,7 +302,7 @@ export default function App() {
           isFocused={isFocused}
           settings={settings}
           onBack={() => setView("settings")}
-          onSimulate={(usage, error) => { setSimulation({ usage, error }); setView("dashboard"); }}
+          onSimulate={(usage, error) => { setSimulation({ usage, error }); setView("dashboard"); emitTo("tray-menu", "simulation-set", { usage, error }); }}
           onShowLogin={() => setView("login-debug")}
           onUpdateSettings={(patch) => {
             setSettings((prev) => {

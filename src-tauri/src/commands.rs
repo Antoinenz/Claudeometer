@@ -407,6 +407,15 @@ pub fn show_desktop_notification(app: AppHandle, title: String, body: String) ->
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+pub fn set_tray_visible(app: AppHandle, visible: bool) {
+    if let Some(tray_state) = app.try_state::<crate::TrayState>() {
+        if let Some(ref tray) = *tray_state.0.lock().unwrap() {
+            let _ = tray.set_visible(visible);
+        }
+    }
+}
+
 /// Recreate the main window with the same shape as the one declared in
 /// tauri.conf.json. Used when the window has been destroyed (e.g. the user
 /// closed it with minimize_to_tray turned off).
