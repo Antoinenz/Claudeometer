@@ -42,9 +42,15 @@ esac
 
 asset="${BIN_NAME}-${os_tag}-${arch_tag}"
 
-echo "Looking up the latest release of ${REPO}..."
+# The service is released independently from the GUI app (tagged
+# `service-v*`, not `v*`), so "the latest release" of the repo as a whole
+# isn't necessarily the one with this asset — e.g. a GUI-only `v*` release
+# could be published more recently. Search the releases list (newest first)
+# for the first one that actually has our asset, instead of assuming
+# /releases/latest does.
+echo "Looking up the most recent claudeometer-service release of ${REPO}..."
 download_url="$(
-    curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
+    curl -fsSL "https://api.github.com/repos/${REPO}/releases" \
         | grep "\"browser_download_url\".*${asset}\"" \
         | head -n1 \
         | sed -E 's/.*"(https[^"]+)".*/\1/'

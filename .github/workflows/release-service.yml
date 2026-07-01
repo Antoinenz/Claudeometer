@@ -1,14 +1,19 @@
 name: Release headless service
 
 # Builds claudeometer-service (crates/service) for every platform and
-# attaches the binaries to the same `v*` tag release the Tauri GUI workflow
-# (release.yml) creates. Kept as its own workflow because it doesn't need
-# Node/webview system packages at all — just Rust.
+# publishes it as its own GitHub release, under a `service-v*` tag —
+# deliberately separate from the GUI app's `v*` release (release.yml), so
+# the two can be tagged, reviewed, and published independently. A release
+# is either fully draft or fully published in GitHub's model (no per-asset
+# granularity), so sharing one release between "ready to publish" service
+# binaries and a GUI build still under review would force them to ship
+# together. Kept as its own workflow because it doesn't need Node/webview
+# system packages at all — just Rust.
 
 on:
   push:
     tags:
-      - 'v*'
+      - 'service-v*'
 
 jobs:
   build:
@@ -48,7 +53,7 @@ jobs:
       - name: Set version from tag
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${GITHUB_REF_NAME#service-v}"
           sed -i.bak -E "0,/^version = \"[^\"]+\"/s//version = \"$VERSION\"/" crates/service/Cargo.toml
           rm crates/service/Cargo.toml.bak
 
