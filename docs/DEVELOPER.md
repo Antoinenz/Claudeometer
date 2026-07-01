@@ -17,7 +17,13 @@
 
 ## Architecture overview
 
-Claudeometer is a Tauri v2 desktop app. The process has two logical layers:
+The repo is a Cargo workspace with three Rust crates:
+
+- `crates/core` (`claudeometer-core`) — the claude.ai HTTP client (`claude.rs`) and shared `UsageData`/`UsageWindow` types. No Tauri dependency; used by both of the below.
+- `src-tauri` (`claudeometer`) — the Tauri v2 desktop app this file documents.
+- `crates/service` (`claudeometer-service`) — the headless, GUI-free service binary. See [docs/SERVICE.md](SERVICE.md) instead of this file if that's what you're working on.
+
+Claudeometer (the desktop app) has two logical layers:
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -55,36 +61,54 @@ Claudeometer is a Tauri v2 desktop app. The process has two logical layers:
 
 ```
 claudeometer/
-├── src/                        # React/TypeScript frontend
-│   ├── App.tsx                 # Root component, routing, event listeners
-│   ├── main.tsx                # Vite entry point
-│   ├── index.css               # Global styles (Tailwind)
+├── Cargo.toml                   # Workspace root: members = crates/core, crates/service, src-tauri
+├── src/                         # React/TypeScript frontend (desktop app only)
+│   ├── App.tsx                  # Root component, routing, event listeners
+│   ├── main.tsx                 # Vite entry point
+│   ├── index.css                # Global styles (Tailwind)
 │   ├── components/
-│   │   ├── UsageBar.tsx        # Single usage window bar + tooltip
-│   │   └── WindowControls.tsx  # Custom title-bar close/minimise buttons
+│   │   ├── UsageBar.tsx         # Single usage window bar + tooltip
+│   │   └── WindowControls.tsx   # Custom title-bar close/minimise buttons
 │   ├── views/
-│   │   ├── Dashboard.tsx       # Main usage view
-│   │   ├── Settings.tsx        # Settings page
-│   │   ├── Login.tsx           # Session-key input
-│   │   ├── TrayMenu.tsx        # Tray popup UI
-│   │   └── Debug.tsx           # Hidden debug panel (tap logo ×5)
+│   │   ├── Dashboard.tsx        # Main usage view
+│   │   ├── Settings.tsx         # Settings page
+│   │   ├── Login.tsx            # Session-key input
+│   │   ├── TrayMenu.tsx         # Tray popup UI
+│   │   └── Debug.tsx            # Hidden debug panel (tap logo ×5)
 │   └── lib/
-│       └── types.ts            # Shared TypeScript types + DEFAULT_SETTINGS
+│       └── types.ts             # Shared TypeScript types + DEFAULT_SETTINGS
+│
+├── crates/
+│   ├── core/                    # claudeometer-core: shared claude.ai client
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       └── claude.rs        # Claude.ai HTTP client (moved from src-tauri)
+│   └── service/                 # claudeometer-service: headless binary — see docs/SERVICE.md
+│       └── src/
+│           ├── main.rs          # clap CLI
+│           ├── config.rs        # config file + keyring-or-file credential storage
+│           ├── api.rs           # axum HTTP API
+│           ├── poller.rs        # background polling loop
+│           ├── run.rs           # shared foreground run path
+│           └── svc/             # self-install as systemd/launchd/Windows service
 │
 ├── src-tauri/
-│   ├── Cargo.toml              # Rust dependencies
-│   ├── tauri.conf.json         # Tauri app config (windows, bundle, CSP)
-│   ├── icons/                  # App icons for all platforms
+│   ├── Cargo.toml               # Rust dependencies (desktop app)
+│   ├── tauri.conf.json          # Tauri app config (windows, bundle, CSP)
+│   ├── icons/                   # App icons for all platforms
 │   └── src/
-│       ├── lib.rs              # App setup: tray, polling, notifications, close behaviour
-│       ├── commands.rs         # All #[tauri::command] handlers + Settings struct
-│       ├── api.rs              # axum HTTP API server
-│       └── claude.rs           # Claude.ai HTTP client
+│       ├── lib.rs               # App setup: tray, polling, notifications, close behaviour
+│       ├── commands.rs          # All #[tauri::command] handlers + Settings struct
+│       └── api.rs               # axum HTTP API server (desktop app's own, separate from the service's)
 │
+├── scripts/
+│   └── install.sh                # curl|sh installer for claudeometer-service
 ├── .github/workflows/
-│   └── release.yml             # Multi-platform release CI (Windows/macOS/Linux)
+│   ├── release.yml               # Desktop app release CI (Windows/macOS/Linux installers)
+│   └── release-service.yml       # Headless service release CI (cross-platform binaries)
 ├── docs/
-│   └── DEVELOPER.md            # This file
+│   ├── DEVELOPER.md              # This file (desktop app)
+│   └── SERVICE.md                # Headless service reference
 └── README.md
 ```
 

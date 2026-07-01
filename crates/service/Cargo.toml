@@ -1,0 +1,30 @@
+[package]
+name = "claudeometer-service"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.77.2"
+description = "Headless Claudeometer: polls claude.ai usage limits and serves them over a small local HTTP API, for servers with no desktop session"
+
+# Explicit binary name — the package is "claudeometer-service" (distinct from
+# the GUI's "claudeometer" binary) so building the whole Cargo workspace
+# never produces two different binaries with the same output filename.
+[[bin]]
+name = "claudeometer-service"
+path = "src/main.rs"
+
+[dependencies]
+claudeometer-core = { path = "../core" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net", "signal"] }
+axum = { version = "0.7", features = ["json"] }
+tower-http = { version = "0.5", features = ["cors"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+keyring = "2"
+dirs = "5"
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.7"
