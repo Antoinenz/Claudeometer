@@ -5,8 +5,8 @@ dist-ssr/
 .DS_Store
 Thumbs.db
 
-# Tauri
-src-tauri/target/
+# Rust workspace (Tauri app + headless service share one target dir now)
+/target/
 src-tauri/gen/
 
 # Claude Code local settings

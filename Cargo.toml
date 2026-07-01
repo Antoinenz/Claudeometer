@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = ["crates/core", "crates/service", "src-tauri"]
+
+# `panic` strategy is a workspace-wide setting in Cargo (cannot be overridden
+# per package), so it lives here rather than in src-tauri/Cargo.toml. We use
+# the default "unwind" (not "abort") because claudeometer-service is a
+# long-running server: a panic inside one request handler must not bring
+# down the whole process. The GUI app loses a small amount of binary-size
+# optimization as a result, which is an acceptable trade-off.
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true

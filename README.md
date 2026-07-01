@@ -35,6 +35,25 @@ Download the latest release for your platform from the [Releases](https://github
 
 The session key is saved to your OS keychain and never stored anywhere else.
 
+## Headless service (no GUI)
+
+Want to leave usage monitoring running on a server — so a coding agent can
+`curl` its usage before doing more work and stop cleanly instead of getting
+cut off — without the desktop app? `claudeometer-service` is a small
+standalone binary for exactly that:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Antoinenz/Claudeometer/main/scripts/install.sh | sh
+claudeometer-service login <your-session-key>
+claudeometer-service install
+```
+
+Three commands, and it's running in the background (systemd on Linux, a
+LaunchAgent on macOS, a Windows service on Windows) serving `GET /usage` on
+`http://127.0.0.1:7842`. `claudeometer-service status` gives a quick terminal
+glance any time. See [docs/SERVICE.md](docs/SERVICE.md) for the full CLI and
+API reference.
+
 ## Development
 
 **Prerequisites:** Rust (stable), Node.js (LTS), platform WebView runtime (WebView2 on Windows, pre-installed on macOS/Linux)

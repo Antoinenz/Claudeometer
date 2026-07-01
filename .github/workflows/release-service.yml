@@ -1,0 +1,94 @@
+name: Release headless service
+
+# Builds claudeometer-service (crates/service) for every platform and
+# attaches the binaries to the same `v*` tag release the Tauri GUI workflow
+# (release.yml) creates. Kept as its own workflow because it doesn't need
+# Node/webview system packages at all — just Rust.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-22.04
+            artifact: claudeometer-service-linux-x86_64
+            use_cross: true
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-22.04
+            artifact: claudeometer-service-linux-aarch64
+            use_cross: true
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            artifact: claudeometer-service-macos-x86_64
+            use_cross: false
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: claudeometer-service-macos-aarch64
+            use_cross: false
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: claudeometer-service-windows-x86_64.exe
+            use_cross: false
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i.bak -E "0,/^version = \"[^\"]+\"/s//version = \"$VERSION\"/" crates/service/Cargo.toml
+          rm crates/service/Cargo.toml.bak
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: '. -> target'
+          key: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.use_cross
+        run: cargo install cross --git https://github.com/cross-rs/cross --locked
+
+      - name: Build (cross, static musl)
+        if: matrix.use_cross
+        run: cross build --release -p claudeometer-service --target ${{ matrix.target }}
+
+      - name: Build (native)
+        if: ${{ !matrix.use_cross }}
+        run: cargo build --release -p claudeometer-service --target ${{ matrix.target }}
+
+      - name: Stage binary
+        shell: bash
+        run: |
+          mkdir -p dist
+          bin="target/${{ matrix.target }}/release/claudeometer-service"
+          if [ -f "${bin}.exe" ]; then bin="${bin}.exe"; fi
+          cp "$bin" "dist/${{ matrix.artifact }}"
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: dist/${{ matrix.artifact }}
+          draft: true
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

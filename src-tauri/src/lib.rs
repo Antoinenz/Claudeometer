@@ -1,6 +1,10 @@
 mod api;
-mod claude;
 mod commands;
+
+// Re-exported under the same `claude` path the rest of this crate already
+// uses (`crate::claude::X` / `claude::X`), so moving the client into the
+// shared claudeometer-core crate required no call-site changes here.
+pub use claudeometer_core::claude;
 
 use commands::*;
 use std::collections::HashMap;
@@ -102,6 +106,14 @@ pub fn run() {
                 .map(|m| m == "session_key")
                 .unwrap_or(false);
 
+            // Needed below both to decide autostart/tray-visibility-on-launch
+            // and to start the API server further down.
+            let settings: commands::Settings = store
+                .as_ref()
+                .and_then(|s| s.get("settings"))
+                .and_then(|v| serde_json::from_value(v).ok())
+                .unwrap_or_default();
+
             // Enforce: no autostart until user is signed in.
             // If signed in with autostart on, re-register on every launch so the OS entry
             // always reflects the current launch args (e.g. picks up --minimized).
@@ -138,11 +150,6 @@ pub fn run() {
             }
 
             // Start API server if it was enabled in persisted settings.
-            let settings: commands::Settings = store
-                .as_ref()
-                .and_then(|s| s.get("settings"))
-                .and_then(|v| serde_json::from_value(v).ok())
-                .unwrap_or_default();
             api::apply(app.handle(), &settings);
 
             Ok(())

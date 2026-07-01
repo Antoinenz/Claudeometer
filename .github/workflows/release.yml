@@ -70,7 +70,9 @@ jobs:
       - name: Cache Rust
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          # The repo is now a Cargo workspace (src-tauri, crates/core,
+          # crates/service all share one target dir at the repo root).
+          workspaces: '. -> target'
 
       - name: Install frontend dependencies
         run: npm install
