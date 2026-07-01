@@ -10,7 +10,7 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2",
+    "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-autostart": "^2",
     "@tauri-apps/plugin-notification": "^2",
     "@tauri-apps/plugin-shell": "^2",
