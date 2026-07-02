@@ -993,8 +993,8 @@ export default function Settings({ auth, usage, isFocused, onBack, onLogout, onO
 
         <Section title="Account">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500/30 to-amber-600/10 border border-amber-600/20 flex items-center justify-center shrink-0">
-              <span className="text-[12px] font-semibold text-amber-400">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500/30 to-amber-600/10 border border-amber-600/20 flex items-center justify-center shrink-0">
+              <span className="text-[13px] font-semibold text-amber-400">
                 {(auth.name || auth.email || "?").charAt(0).toUpperCase()}
               </span>
             </div>
