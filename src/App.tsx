@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen, emitTo } from "@tauri-apps/api/event";
+import { listen, emit, emitTo } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { AuthState, Settings, UsageData, DEFAULT_SETTINGS } from "./lib/types";
 import { applyDebugFlags } from "./main";
@@ -97,6 +97,12 @@ export default function App() {
       } else if (e.payload.view === "dashboard") {
         setView("dashboard");
       }
+      // Tell Rust the view has actually switched, once the browser has painted
+      // it — Rust waits for this (with a fallback timeout) before revealing a
+      // hidden main window, so it never flashes the previous view first.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        emit("tray-navigate-ack", {});
+      }));
     });
     // Sync spinner and cooldown with the tray menu via shared Rust events.
     // refresh-started fires for every user-triggered fetch (main app or tray).

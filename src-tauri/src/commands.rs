@@ -2,7 +2,7 @@ use crate::claude::{fetch_claude_usage, UsageData};
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, async_runtime};
+use tauri::{AppHandle, Emitter, Listener, Manager, WebviewUrl, WebviewWindowBuilder, async_runtime};
 use tauri_plugin_notification::NotificationExt;
 use tauri_plugin_store::StoreExt;
 
@@ -496,10 +496,24 @@ pub fn tray_action(app: AppHandle, action: String) -> Result<(), String> {
             if app.get_webview_window("main").is_some() {
                 // Window is hidden but React is already mounted. Emit the navigation
                 // event first so React commits the Settings view while still hidden,
-                // then pause long enough for the WebView2 compositor to produce one
-                // frame with the new content before we make the window visible.
+                // then wait for the frontend to ack that the view actually switched
+                // (two rAFs after the state update, so the compositor has produced a
+                // frame with the new content) before revealing the window. This used
+                // to be a flat 50ms sleep, which was long enough on a warm dev machine
+                // but not reliably on a cold-started or busy one — too short and the
+                // window flashes the previous view before snapping to Settings.
+                let (tx, rx) = std::sync::mpsc::channel::<()>();
+                let tx = std::sync::Mutex::new(Some(tx));
+                let handler_id = app.once("tray-navigate-ack", move |_event| {
+                    if let Some(tx) = tx.lock().unwrap().take() {
+                        let _ = tx.send(());
+                    }
+                });
                 let _ = app.emit("tray-navigate", serde_json::json!({ "view": "settings" }));
-                std::thread::sleep(std::time::Duration::from_millis(50));
+                // Fallback timeout in case the frontend fails to ack for any reason —
+                // keeps this from hanging the tray-action command indefinitely.
+                let _ = rx.recv_timeout(std::time::Duration::from_millis(400));
+                app.unlisten(handler_id);
                 bring_main_to_front(&app);
             } else {
                 // Window was destroyed — React isn't mounted yet, so emit after
