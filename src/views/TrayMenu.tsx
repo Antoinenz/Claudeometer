@@ -287,8 +287,12 @@ export default function TrayMenu() {
 
         <div className="h-px bg-zinc-800/60" />
 
-        {/* Usage bars */}
-        <div className="px-2.5 py-2 space-y-2.5">
+        {/* Usage bars — min-h reserves space for a full 3-bar layout (the
+            skeleton's height) regardless of how many bars actually render
+            (often 2, since seven_day_sonnet is frequently absent), so the
+            box doesn't visibly resize the instant cached data replaces the
+            loading skeleton on first open. */}
+        <div className="px-2.5 py-2 space-y-2.5 min-h-[90px] flex flex-col justify-center">
           {isLoading && (
             <>
               <div className="h-[22px] rounded skeleton" />
