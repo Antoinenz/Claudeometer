@@ -133,7 +133,16 @@ export default function Dashboard({ usage, error, isRefreshing, cooldownEndsAt, 
       <div
         data-tauri-drag-region
         className="flex items-center justify-between h-[48px] px-3.5 border-b border-zinc-800/60 select-none shrink-0 touch-none bg-gradient-to-b from-[#141414] to-[#101010]"
-        onPointerDown={(e) => { if (e.pointerType !== "mouse") getCurrentWindow().startDragging(); }}
+        onPointerDown={(e) => {
+          // Touch drag-regions are a known, currently-unresolved upstream Tauri
+          // limitation (tauri-apps/tauri#11719, #4746) — data-tauri-drag-region's
+          // native handling doesn't cover touch on several platforms, so we start
+          // the drag manually. preventDefault stops the browser's own touch
+          // gesture handling (scroll/pan) from racing the native drag start.
+          if (e.pointerType === "mouse") return;
+          e.preventDefault();
+          getCurrentWindow().startDragging();
+        }}
       >
         <div className="flex items-center gap-2 pointer-events-none">
           <img src="/icon.png" alt="" className="w-[18px] h-[18px] rounded" draggable={false} />

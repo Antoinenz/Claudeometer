@@ -748,7 +748,13 @@ export default function Settings({ auth, usage, isFocused, onBack, onLogout, onO
       <div
         data-tauri-drag-region
         className="flex items-center justify-between h-[48px] px-3.5 border-b border-zinc-800/60 select-none shrink-0 touch-none bg-gradient-to-b from-[#141414] to-[#101010]"
-        onPointerDown={(e) => { if (e.pointerType !== "mouse") getCurrentWindow().startDragging(); }}
+        onPointerDown={(e) => {
+          // See Dashboard.tsx's topbar for why this exists — upstream Tauri
+          // limitation, tauri-apps/tauri#11719.
+          if (e.pointerType === "mouse") return;
+          e.preventDefault();
+          getCurrentWindow().startDragging();
+        }}
       >
         <div className="flex items-center gap-1.5">
           <button

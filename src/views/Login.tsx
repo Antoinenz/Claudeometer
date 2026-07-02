@@ -65,7 +65,13 @@ export default function Login({ onLogin, onBack }: Props) {
       <div
         data-tauri-drag-region
         className="flex items-center justify-end h-[48px] px-3.5 border-b border-transparent select-none shrink-0 touch-none"
-        onPointerDown={(e) => { if (e.pointerType !== "mouse") getCurrentWindow().startDragging(); }}
+        onPointerDown={(e) => {
+          // See Dashboard.tsx's topbar for why this exists — upstream Tauri
+          // limitation, tauri-apps/tauri#11719.
+          if (e.pointerType === "mouse") return;
+          e.preventDefault();
+          getCurrentWindow().startDragging();
+        }}
       >
         <WindowControls />
       </div>
