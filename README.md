@@ -7,11 +7,7 @@
 
 **A lightweight desktop app for monitoring Claude.ai usage limits in real time. Built with Tauri v2, Rust, and React.**
 
-</div>
-
 See your 5-hour and 7-day usage live from the system tray, and get notified as you approach a limit or when one resets. More importantly, the built-in HTTP API and [headless service](#headless-service-no-gui) mode expose that same data on `localhost` — so a coding agent can check its own usage and stop cleanly before it gets cut off, instead of hitting the limit blind.
-
-<div align="center">
 
 <br>
 
