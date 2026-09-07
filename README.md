@@ -7,6 +7,10 @@
 
 **A lightweight desktop app for monitoring Claude.ai usage limits in real time. Built with Tauri v2, Rust, and React.**
 
+<br>
+
+<img src="docs/screenshots/dashboard.png" width="380" alt="Claudeometer dashboard showing live usage bars" /> &nbsp; <img src="docs/screenshots/tray-menu.png" width="380" alt="Claudeometer system tray menu" />
+
 </div>
 
 ## Features
