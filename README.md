@@ -44,6 +44,8 @@ Download the latest release for your platform from the [Releases](https://github
 2. Open DevTools → Application → Cookies → find `sessionKey`
 3. Copy the value and paste it into Claudeometer when prompted
 
+<img src="docs/screenshots/devtools-cookie-panel.png" width="600" alt="Chrome DevTools Application panel with the sessionKey cookie row highlighted" />
+
 The session key is saved to your OS keychain and never stored anywhere else.
 
 ## Headless service (no GUI)
