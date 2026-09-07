@@ -95,6 +95,20 @@ Rules are edge-triggered — each rule fires once per crossing rather than on ev
 
 Both desktop notifications and [ntfy](https://ntfy.sh) push notifications are supported, each with their own independent rule sets.
 
+## Screenshots
+
+<details>
+<summary>More screenshots</summary>
+<br>
+
+<img src="docs/screenshots/dashboard-reset-tooltip.png" width="380" alt="Dashboard with the reset time tooltip open" /> &nbsp; <img src="docs/screenshots/login.png" width="380" alt="Login screen" />
+
+<img src="docs/screenshots/settings-general.png" width="380" alt="Settings — general and sync options" /> &nbsp; <img src="docs/screenshots/settings-account.png" width="380" alt="Settings — account and about" />
+
+<img src="docs/screenshots/settings-api.png" width="380" alt="Settings — HTTP API configuration" /> &nbsp; <img src="docs/screenshots/settings-api-preview.png" width="380" alt="Settings — HTTP API live preview" />
+
+</details>
+
 ## License
 
 [MIT](https://github.com/Antoinenz/Claudeometer?tab=MIT-1-ov-file)
