@@ -9,9 +9,7 @@
 
 </div>
 
-Claude.ai's usage limits reset on a rolling window, and it's easy to hit one mid-task with no warning. Claudeometer keeps your 5-hour and 7-day usage visible live from the system tray — no tab-switching, no guessing — and can notify you as you approach a limit, when one's about to reset, or when it has.
-
-More importantly, it's not just for you to look at: the built-in HTTP API and [headless service](#headless-service-no-gui) mode expose that same usage data on `localhost`, so a coding agent can check its own remaining limit before starting expensive work and stop cleanly on its own terms — instead of getting cut off mid-task with no notice.
+See your 5-hour and 7-day usage live from the system tray, and get notified as you approach a limit or when one resets. More importantly, the built-in HTTP API and [headless service](#headless-service-no-gui) mode expose that same data on `localhost` — so a coding agent can check its own usage and stop cleanly before it gets cut off, instead of hitting the limit blind.
 
 <div align="center">
 
