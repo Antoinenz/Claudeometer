@@ -1,6 +1,14 @@
+
+<div align="center">
+
+<img src="src-tauri/icons/128x128.png" width="112" height="112" alt="Claudeometer logo" />
+
 # Claudeometer
 
-A lightweight desktop app for monitoring Claude.ai usage limits in real time. Built with Tauri v2, Rust, and React.
+**A lightweight desktop app for monitoring Claude.ai usage limits in real time. Built with Tauri v2, Rust, and React.**
+
+</div>
+
 
 ## Features
 
