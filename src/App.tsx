@@ -8,6 +8,7 @@ import Login from "./views/Login";
 import Dashboard from "./views/Dashboard";
 import Settings_ from "./views/Settings";
 import Debug from "./views/Debug";
+import Confetti from "./components/Confetti";
 
 type View = "login" | "login-debug" | "dashboard" | "settings" | "debug";
 
@@ -24,7 +25,9 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [cooldownEndsAt, setCooldownEndsAt] = useState<number | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [showConfetti, setShowConfetti] = useState(false);
 
+  const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const refreshingRef = useRef(false);
   const cooldownUntilRef = useRef<number>(0);
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -41,6 +44,7 @@ export default function App() {
   };
 
   useEffect(() => { authRef.current = auth; }, [auth]);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
 
   useEffect(() => {
     invoke<AuthState>("get_auth_state").then((state) => {
@@ -139,6 +143,15 @@ export default function App() {
       setSimulation(null);
       setView("debug");
     });
+    const unlistenConfetti = listen("usage-reset-confetti", async () => {
+      if (!settingsRef.current.confetti_on_reset) return;
+      const visible = await getCurrentWindow().isVisible();
+      if (visible) {
+        setShowConfetti(true);
+      } else {
+        invoke("fire_tray_confetti").catch(() => {});
+      }
+    });
     return () => {
       unlistenUsage.then((f) => f());
       unlistenError.then((f) => f());
@@ -148,6 +161,7 @@ export default function App() {
       unlistenRefreshDone.then((f) => f());
       unlistenRefreshCooldown.then((f) => f());
       unlistenSimStop.then((f) => f());
+      unlistenConfetti.then((f) => f());
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -275,6 +289,7 @@ export default function App() {
 
   return (
     <div className={`h-screen bg-[#0d0d0d] flex flex-col overflow-hidden border transition-colors duration-200 ${isFocused ? "border-zinc-700/50" : "border-zinc-800/40"}`}>
+      {showConfetti && <Confetti onDone={() => setShowConfetti(false)} />}
       {view === "login" && <Login onLogin={handleLogin} />}
       {view === "dashboard" && (
         <Dashboard
@@ -310,6 +325,8 @@ export default function App() {
           onBack={() => setView("settings")}
           onSimulate={(usage, error) => { setSimulation({ usage, error }); setView("dashboard"); emitTo("tray-menu", "simulation-set", { usage, error }); }}
           onShowLogin={() => setView("login-debug")}
+          onTestAppConfetti={() => setShowConfetti(true)}
+          onTestTrayConfetti={() => invoke("fire_tray_confetti").catch((e) => alert(String(e)))}
           onUpdateSettings={(patch) => {
             setSettings((prev) => {
               const updated = { ...prev, ...patch };

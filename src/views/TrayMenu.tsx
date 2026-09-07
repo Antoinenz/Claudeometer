@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit, listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import confetti from "canvas-confetti";
 import { Settings, UsageData } from "../lib/types";
 
 type Arrow = "down" | "up";
@@ -124,6 +125,10 @@ export default function TrayMenu() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [, setTick] = useState(0);
 
+  const [confettiMode, setConfettiMode] = useState(false);
+  const confettiOriginRef = useRef({ origin_x: 0.92, origin_y: 1.0 });
+  const confettiWasVisibleRef = useRef(false);
+  const confettiFrameRef = useRef<number>(0);
   const isSimulatingRef = useRef(false);
   const pendingRefreshesRef = useRef(0);
   const cooldownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -149,6 +154,14 @@ export default function TrayMenu() {
     const unlistenError = listen<string>("usage-error", () => {
       if (!isSimulatingRef.current) setUsage(null);
     });
+    const unlistenTrayConfetti = listen<{ origin_x: number; origin_y: number; was_visible: boolean }>(
+      "tray-confetti-start",
+      (e) => {
+        confettiOriginRef.current = { origin_x: e.payload.origin_x, origin_y: e.payload.origin_y };
+        confettiWasVisibleRef.current = e.payload.was_visible;
+        setConfettiMode(true);
+      }
+    );
     const unlistenSimSet = listen<{ usage: UsageData | null; error: string | null }>("simulation-set", (e) => {
       isSimulatingRef.current = true;
       setSimulatedData(e.payload);
@@ -182,6 +195,7 @@ export default function TrayMenu() {
       unlistenRefreshStarted.then((f) => f());
       unlistenRefreshDone.then((f) => f());
       unlistenRefreshCooldown.then((f) => f());
+      unlistenTrayConfetti.then((f) => f());
       unlistenSimSet.then((f) => f());
       unlistenSimClear.then((f) => f());
     };
@@ -210,6 +224,41 @@ export default function TrayMenu() {
     };
   }, [cooldownEndsAt]);
 
+  // When confetti mode activates, show the window (now rendering null = transparent)
+  // then fire confetti. setTimeout(0) runs after React's synchronous re-render,
+  // so the window shows only once the menu content is already gone.
+  useEffect(() => {
+    if (!confettiMode) return;
+    const colors = ["#f59e0b", "#10b981", "#3b82f6", "#f43f5e", "#a78bfa", "#fb923c"];
+    const timer = setTimeout(() => {
+      invoke("show_tray_for_confetti").catch(() => {});
+      const { origin_x, origin_y } = confettiOriginRef.current;
+      const end = Date.now() + 800;
+      let lastPromise: Promise<unknown> = Promise.resolve();
+      function frame() {
+        lastPromise = confetti({
+          particleCount: 4, angle: 90, spread: 55,
+          origin: { x: origin_x, y: origin_y },
+          startVelocity: 38, gravity: 1.3, scalar: 0.85, colors,
+        }) ?? Promise.resolve();
+        if (Date.now() < end) {
+          confettiFrameRef.current = requestAnimationFrame(frame);
+        } else {
+          lastPromise.then(() => {
+            invoke("restore_tray_window", { wasVisible: confettiWasVisibleRef.current }).catch(() => {});
+            setConfettiMode(false);
+          });
+        }
+      }
+      confettiFrameRef.current = requestAnimationFrame(frame);
+    }, 0);
+    return () => {
+      clearTimeout(timer);
+      cancelAnimationFrame(confettiFrameRef.current);
+      confetti.reset();
+    };
+  }, [confettiMode]);
+
   // Re-render every 30s so the "X ago" string stays current.
   useEffect(() => {
     if (!lastUpdatedAt) return;
@@ -224,6 +273,8 @@ export default function TrayMenu() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  if (confettiMode) return null; // transparent fullscreen — confetti overlay active
 
   const inCooldown = !!(cooldownEndsAt && Date.now() < cooldownEndsAt);
   const isSimulating = simulatedData !== null;

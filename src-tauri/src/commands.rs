@@ -115,6 +115,8 @@ pub struct Settings {
     pub api_allow_read_settings: bool,
     #[serde(default)]
     pub api_allow_write_settings: bool,
+    #[serde(default)]
+    pub confetti_on_reset: bool,
 }
 
 impl Default for Settings {
@@ -146,6 +148,7 @@ impl Default for Settings {
             api_allow_refresh: false,
             api_allow_read_settings: false,
             api_allow_write_settings: false,
+            confetti_on_reset: false,
         }
     }
 }
@@ -405,6 +408,125 @@ pub fn show_desktop_notification(app: AppHandle, title: String, body: String) ->
         .body(body)
         .show()
         .map_err(|e| e.to_string())
+}
+
+/// Expand the tray-menu window to fullscreen and send it a confetti-start event.
+/// Returns Err if the tray icon is not visible or its screen position is unavailable.
+#[tauri::command]
+pub async fn fire_tray_confetti(app: AppHandle) -> Result<(), String> {
+    // Guard: show_in_tray is the authoritative flag for whether the icon is displayed.
+    // TrayIcon::rect() returns a stale position even when the icon is hidden, so we
+    // must check the setting explicitly before attempting to read the rect.
+    let show_in_tray = app
+        .store("store.json")
+        .ok()
+        .and_then(|s| s.get("settings"))
+        .and_then(|v| v.get("show_in_tray").cloned())
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    if !show_in_tray {
+        return Err("Tray icon is not visible".to_string());
+    }
+
+    // Read the tray icon's current screen rect.
+    let tray_rect: tauri::Rect = {
+        let state = app
+            .try_state::<crate::TrayState>()
+            .ok_or_else(|| "Tray icon unavailable".to_string())?;
+        let guard = state.0.lock().unwrap();
+        let tray = guard
+            .as_ref()
+            .ok_or_else(|| "Tray icon is not visible".to_string())?;
+        tray.rect()
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "Tray icon is not visible".to_string())?
+    };
+
+    // Convert the rect to physical pixels (Windows always returns physical, but be safe).
+    let scale = app
+        .primary_monitor()
+        .ok()
+        .flatten()
+        .map(|m| m.scale_factor())
+        .unwrap_or(1.0);
+    let (icon_x, icon_y) = match tray_rect.position {
+        tauri::Position::Physical(p) => (p.x as f64, p.y as f64),
+        tauri::Position::Logical(p) => (p.x * scale, p.y * scale),
+    };
+    let (icon_w, icon_h) = match tray_rect.size {
+        tauri::Size::Physical(s) => (s.width as f64, s.height as f64),
+        tauri::Size::Logical(s) => (s.width * scale, s.height * scale),
+    };
+
+    // Find the monitor the tray icon lives on (accounts for multi-monitor setups).
+    let monitor = app
+        .monitor_from_point(icon_x + icon_w / 2.0, icon_y + icon_h / 2.0)
+        .ok()
+        .flatten()
+        .or_else(|| app.primary_monitor().ok().flatten())
+        .ok_or_else(|| "No monitor found".to_string())?;
+
+    let m_size = monitor.size();
+    let m_pos = monitor.position();
+
+    // Normalise to canvas-confetti's [0,1] coordinate space (origin at top-left).
+    // Use the TOP edge of the tray icon so confetti bursts from where the desktop
+    // meets the taskbar, not from inside the icon.
+    let origin_x = ((icon_x + icon_w / 2.0 - m_pos.x as f64) / m_size.width as f64).clamp(0.0, 1.0);
+    let origin_y = ((icon_y - m_pos.y as f64) / m_size.height as f64).clamp(0.0, 1.0);
+
+    // The tray-menu window is pre-created at startup — if it's somehow missing, bail.
+    let Some(window) = app.get_webview_window("tray-menu") else {
+        return Ok(());
+    };
+
+    let was_visible = window.is_visible().unwrap_or(false);
+    let _ = window.hide();
+    let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
+        x: m_pos.x,
+        y: m_pos.y,
+    }));
+    let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+        width: m_size.width,
+        height: m_size.height,
+    }));
+    let _ = window.set_ignore_cursor_events(true);
+    let _ = window.emit(
+        "tray-confetti-start",
+        serde_json::json!({ "origin_x": origin_x, "origin_y": origin_y, "was_visible": was_visible }),
+    );
+
+    Ok(())
+}
+
+/// Called by TrayMenu.tsx after it has rendered to null (transparent).
+/// Safe to show the window at that point — no menu content will flash.
+/// Also resets TrayLastShow so the focus-loss handler won't hide the window
+/// during the confetti animation.
+#[tauri::command]
+pub fn show_tray_for_confetti(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("tray-menu") {
+        let _ = w.show();
+        if let Some(state) = app.try_state::<crate::TrayLastShow>() {
+            *state.0.lock().unwrap() = Some(std::time::Instant::now());
+        }
+    }
+}
+
+/// Shrink the tray-menu window back to its normal size after confetti.
+#[tauri::command]
+pub fn restore_tray_window(app: AppHandle, _was_visible: bool) {
+    if let Some(w) = app.get_webview_window("tray-menu") {
+        // Hide first — the window is still fullscreen at top-left and menu content
+        // is already re-rendering, so resizing while visible would flash the small
+        // menu at the wrong position.
+        let _ = w.hide();
+        let _ = w.set_ignore_cursor_events(false);
+        let _ = w.set_size(tauri::Size::Logical(tauri::LogicalSize {
+            width: crate::TRAY_MENU_W,
+            height: crate::TRAY_MENU_H,
+        }));
+    }
 }
 
 #[tauri::command]

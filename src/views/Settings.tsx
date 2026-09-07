@@ -995,6 +995,11 @@ export default function Settings({ auth, usage, isFocused, onBack, onLogout, onO
             description="Hover the relative reset time to see the exact date"
             value={settings.show_reset_tooltip ?? true}
             onChange={(v) => update({ show_reset_tooltip: v })} />
+          <Toggle
+            label="Confetti on reset"
+            description="Celebrate when a usage limit resets"
+            value={settings.confetti_on_reset ?? false}
+            onChange={(v) => update({ confetti_on_reset: v })} />
         </Section>
 
         <Section title="Account">

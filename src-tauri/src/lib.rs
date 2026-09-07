@@ -37,11 +37,15 @@ unsafe fn set_process_description(desc: &str) {
     let _ = f(GetCurrentProcess(), wide.as_ptr());
 }
 
-const TRAY_MENU_W: f64 = 246.0;
-const TRAY_MENU_H: f64 = 198.0;
+pub const TRAY_MENU_W: f64 = 246.0;
+pub const TRAY_MENU_H: f64 = 198.0;
 
 /// Holds the live TrayIcon handle so save_settings can call set_visible() on it.
 pub struct TrayState(pub Mutex<Option<TrayIcon>>);
+
+/// Physical screen coordinates of the tray icon center X and bottom Y.
+/// Updated each time the tray menu is opened; used to aim tray confetti.
+pub struct TrayIconPos(pub Mutex<Option<(f64, f64)>>);
 
 /// Handle to the running API server task — aborted and replaced whenever API settings change.
 pub struct ApiServerHandle(pub Mutex<Option<tauri::async_runtime::JoinHandle<()>>>);
@@ -55,7 +59,7 @@ struct TrayLastHide(Mutex<Option<Instant>>);
 /// Used to suppress spurious Focused(false) events that WebView2 fires
 /// during its own init sequence (which can arrive after Focused(true),
 /// defeating the old ever_focused guard).
-struct TrayLastShow(Mutex<Option<Instant>>);
+pub struct TrayLastShow(pub Mutex<Option<Instant>>);
 
 /// Tracks utilization and reset-countdown values from the previous poll
 /// so we can implement edge-triggered notification rules.
@@ -158,6 +162,7 @@ pub fn run() {
         .manage(TrayLastHide(Mutex::new(None)))
         .manage(TrayLastShow(Mutex::new(None)))
         .manage(TrayState(Mutex::new(None)))
+        .manage(TrayIconPos(Mutex::new(None)))
         .manage(ApiServerHandle(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             get_auth_state,
@@ -172,6 +177,9 @@ pub fn run() {
             get_cached_usage,
             get_app_version,
             set_tray_visible,
+            fire_tray_confetti,
+            show_tray_for_confetti,
+            restore_tray_window,
         ])
         .run(tauri::generate_context!())
         .expect("error running Claudeometer");
@@ -216,6 +224,11 @@ fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
     if let Some(state) = app.try_state::<TrayState>() {
         *state.0.lock().unwrap() = Some(tray);
     }
+
+    // Pre-create the tray-menu window (hidden) so fire_tray_confetti never needs
+    // to create it at call-time — creating a WebView2 window blocks the main thread
+    // for hundreds of ms and causes an apparent freeze.
+    let _ = build_tray_menu_window(app.handle(), "down");
 
     Ok(())
 }
@@ -285,6 +298,11 @@ fn toggle_tray_menu(app: &AppHandle, tray_rect: tauri::Rect) {
 
     let arrow = if below { "up" } else { "down" };
 
+    // Remember icon position so fire_tray_confetti can aim from the right spot.
+    if let Some(pos_state) = app.try_state::<TrayIconPos>() {
+        *pos_state.0.lock().unwrap() = Some((icon_center_x, icon_y + icon_h));
+    }
+
     let window = match app.get_webview_window("tray-menu") {
         Some(w) => w,
         None => match build_tray_menu_window(app, arrow) {
@@ -305,7 +323,7 @@ fn toggle_tray_menu(app: &AppHandle, tray_rect: tauri::Rect) {
     let _ = window.set_focus();
 }
 
-fn build_tray_menu_window(app: &AppHandle, arrow: &str) -> tauri::Result<tauri::WebviewWindow> {
+pub fn build_tray_menu_window(app: &AppHandle, arrow: &str) -> tauri::Result<tauri::WebviewWindow> {
     let url = format!("index.html#tray-menu-{arrow}");
     let w = WebviewWindowBuilder::new(
         app,
@@ -651,6 +669,18 @@ async fn check_notification_rules(
                     .send()
                     .await;
             }
+        }
+    }
+
+    // Confetti: fire when any window drops from ≥10% → <5% (a real reset).
+    // Suppressed on the very first poll (prev is empty) to avoid a confetti burst on startup.
+    if settings.confetti_on_reset && !prev_util.is_empty() {
+        let reset = cur_util.iter().any(|(key, &cur)| {
+            let prev = prev_util.get(key).copied().unwrap_or(0.0);
+            prev >= 10.0 && cur < 5.0
+        });
+        if reset {
+            let _ = app.emit("usage-reset-confetti", ());
         }
     }
 

@@ -55,6 +55,7 @@ export interface Settings {
   api_allow_refresh: boolean;
   api_allow_read_settings: boolean;
   api_allow_write_settings: boolean;
+  confetti_on_reset: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -84,4 +85,5 @@ export const DEFAULT_SETTINGS: Settings = {
   api_allow_refresh: false,
   api_allow_read_settings: false,
   api_allow_write_settings: false,
+  confetti_on_reset: false,
 };
