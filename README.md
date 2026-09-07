@@ -7,7 +7,6 @@
 
 **A lightweight desktop app for monitoring Claude.ai usage limits in real time. Built with Tauri v2, Rust, and React.**
 
-<br>
 </div>
 
 ## Features
