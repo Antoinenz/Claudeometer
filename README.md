@@ -42,7 +42,7 @@ Download the latest release for your platform from the [Release](https://github.
 
 ## Setup
 
-1. Open **Claude.ai** in your browser and sign in
+1. Open [**Claude.ai**](https://claude.ai) in your browser and sign in
 2. Right-click anywhere to open the context menu, then inspect to open DevTools
 3. Application → Cookies → `https://claude.ai` → find `sessionKey`
 4. Copy the value and paste it into Claudeometer when prompted
