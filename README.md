@@ -32,7 +32,7 @@ See your 5-hour and 7-day usage live from the system tray, and get notified as y
 
 ## Installation
 
-Download the latest release for your platform from the [Releases](https://github.com/Antoinenz/Claudeometer/releases) page:
+Download the latest release for your platform from the [Release](https://github.com/Antoinenz/Claudeometer/releases/latest) page:
 
 | Platform | File |
 |----------|------|
