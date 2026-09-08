@@ -37,7 +37,7 @@ Download the latest release for your platform from the [Releases](https://github
 | Platform | File |
 |----------|------|
 | Windows  | `.msi` or `.exe` installer |
-| macOS    | `.dmg` (universal — Apple Silicon + Intel) |
+| macOS    | `.dmg` |
 | Linux    | `.deb` or `.AppImage` |
 
 ## Setup
@@ -111,6 +111,7 @@ Both desktop notifications and [ntfy](https://ntfy.sh) push notifications are su
 
 <img src="docs/screenshots/settings-api.png" width="380" alt="Settings — HTTP API configuration" /> &nbsp; <img src="docs/screenshots/settings-api-preview.png" width="380" alt="Settings — HTTP API live preview" />
 
+(Screenshots taken of version 0.1.2 on Windows)
 </details>
 
 ## License
