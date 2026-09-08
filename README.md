@@ -43,12 +43,15 @@ Download the latest release for your platform from the [Release](https://github.
 ## Setup
 
 1. Open **Claude.ai** in your browser and sign in
-2. Open DevTools → Application → Cookies → find `sessionKey`
-3. Copy the value and paste it into Claudeometer when prompted
+2. Right-click anywhere to open the context menu, then inspect to open DevTools
+3. Application → Cookies → `https://claude.ai` → find `sessionKey`
+4. Copy the value and paste it into Claudeometer when prompted
 
 <img src="docs/screenshots/devtools-cookie-panel.png" width="600" alt="Chrome DevTools Application panel with the sessionKey cookie row highlighted" />
 
-The session key is saved to your OS keychain and never stored anywhere else.
+Don't share this key with anyone. The session key is saved securely to your OS keychain and never stored anywhere else.
+
+Signing out of a session will make that key invalid.
 
 ## Headless service (no GUI)
 
